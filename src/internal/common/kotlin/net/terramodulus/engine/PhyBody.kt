@@ -5,6 +5,9 @@
 
 package net.terramodulus.engine
 
+import com.cout970.math.vec3.Vec3d
+import net.terramodulus.engine.common.ImmVec3dFromArray
+import net.terramodulus.engine.common.toArray
 import net.terramodulus.engine.ferricia.Physics.addPhyBodyForce
 import net.terramodulus.engine.ferricia.Physics.addPhyBodyGeom
 import net.terramodulus.engine.ferricia.Physics.getPhyBodyLinearVel
@@ -22,12 +25,12 @@ class PhyBody internal constructor(worldHandle: ULong, mass: Mass) {
 		class SphereTotal(mass: Double, radius: Double) : Mass(newMassSphereTotal(mass, radius))
 	}
 
-	var pos
-		get() = Vec3D.fromArray(getPhyBodyPos(handle))
+	var pos: Vec3d
+		get() = ImmVec3dFromArray(getPhyBodyPos(handle))
 		set(value) = setPhyBodyPos(handle, value.toArray())
 
-	var linearVel
-		get() = Vec3D.fromArray(getPhyBodyLinearVel(handle))
+	var linearVel: Vec3d
+		get() = ImmVec3dFromArray(getPhyBodyLinearVel(handle))
 		set(value) = setPhyBodyLinearVel(handle, value.toArray())
 
 	var gravityMode: Boolean by Delegates.observable(true) { _, _, newValue ->
@@ -36,5 +39,5 @@ class PhyBody internal constructor(worldHandle: ULong, mass: Mass) {
 
 	fun addGeom(geom: PhyGeom) = addPhyBodyGeom(handle, geom.handle)
 
-	fun addForce(force: Vec3D) = addPhyBodyForce(handle, force.toArray())
+	fun addForce(force: Vec3d) = addPhyBodyForce(handle, force.toArray())
 }

@@ -7,6 +7,7 @@ package net.terramodulus.engine.ferricia
 
 import net.terramodulus.engine.MuiEvent
 
+@OptIn(ExperimentalUnsignedTypes::class)
 internal object Mui {
 	/**
 	 * @return SDL handle pointer
@@ -38,6 +39,13 @@ internal object Mui {
 	 */
 	@JvmName("getGLVersion")
 	external fun getGLVersion(windowHandle: ULong): String
+
+	/**
+	 * @param sdlHandle SDL handle pointer
+	 * @return `[x, y]` in window coordinates
+	 */
+	@JvmName("getMousePos")
+	external fun getMousePos(sdlHandle: ULong): FloatArray
 
 	/**
 	 * @param sdlHandle SDL handle pointer
@@ -91,48 +99,59 @@ internal object Mui {
 	@JvmName("loadImageToCanvas")
 	external fun loadImageToCanvas(canvasHandle: ULong, data: ByteArray): UInt
 
+	/**
+	 * @param windowHandle window handle pointer
+	 */
 	@JvmName("clearCanvas")
-	external fun clearCanvas()
-
-	@JvmName("setCanvasClearColor")
-	external fun setCanvasClearColor(r: Float, g: Float, b: Float, a: Float)
+	external fun clearCanvas(windowHandle: ULong)
 
 	/**
+	 * @param windowHandle window handle pointer
+	 */
+	@JvmName("setCanvasClearColor")
+	external fun setCanvasClearColor(windowHandle: ULong, r: Float, g: Float, b: Float, a: Float)
+
+	/**
+	 * @param windowHandle window handle pointer
 	 * @param vsh source code of vector shader
 	 * @param fsh source code of fragment shader
 	 * @return Geo Shader Program handle pointer
 	 */
 	@JvmName("geoShaders")
-	external fun geoShaders(vsh: String, fsh: String): ULong
+	external fun geoShaders(windowHandle: ULong, vsh: String, fsh: String): ULong
 
 	/**
+	 * @param windowHandle window handle pointer
 	 * @param vsh source code of vector shader
 	 * @param fsh source code of fragment shader
 	 * @return Tex Shader Program handle pointer
 	 */
 	@JvmName("texShaders")
-	external fun texShaders(vsh: String, fsh: String): ULong
+	external fun texShaders(windowHandle: ULong, vsh: String, fsh: String): ULong
 
 	/**
+	 * @param windowHandle window handle pointer
 	 * @param data `[x0, y0, x1, y1, r, g, b, a]`
 	 * @return SimpleLineGeom as DrawableSet handle pointer
 	 */
 	@JvmName("newSimpleLineGeom")
-	external fun newSimpleLineGeom(data: IntArray): ULong
+	external fun newSimpleLineGeom(windowHandle: ULong, data: IntArray): ULong
 
 	/**
+	 * @param windowHandle window handle pointer
 	 * @param data `[x0, y0, x1, y1, r, g, b, a]`
 	 * @return SimpleRectGeom as DrawableSet handle pointer
 	 */
 	@JvmName("newSimpleRectGeom")
-	external fun newSimpleRectGeom(data: IntArray): ULong
+	external fun newSimpleRectGeom(windowHandle: ULong, data: IntArray): ULong
 
 	/**
+	 * @param windowHandle window handle pointer
 	 * @param data `[x0, y0, x1, y1]`
 	 * @return SpriteMesh as DrawableSet handle pointer
 	 */
 	@JvmName("newSpriteMesh")
-	external fun newSpriteMesh(data: IntArray): ULong
+	external fun newSpriteMesh(windowHandle: ULong, data: IntArray): ULong
 
 	/**
 	 * @param handle DrawableSet handle pointer
@@ -142,29 +161,22 @@ internal object Mui {
 	external fun setGeomPos(handle: ULong, data: FloatArray)
 
 	/**
-	 * @param data `[w, h, param, w, h]`
-	 * @return SmartScaling handle pointers
+	 * @param data `[sx, sy, angle, px, py]`; scaling, rotation, position
+	 * @return GeneralTransform handle pointer and PrimModelTransform (wide) handle pointer
 	 */
-	@JvmName("modelSmartScaling")
-	external fun modelSmartScaling(data: IntArray): ULongArray
+	@JvmName("modelGeneralTransform")
+	external fun modelGeneralTransform(data: DoubleArray): ULongArray
 
 	/**
-	 * @param data `[w, h]`
-	 * @return FullScaling handle pointers
+	 * @param handle GeneralTransform thin pointer
+	 * @param data `[sx, sy, angle, px, py]`; scaling, rotation, position
 	 */
-	@JvmName("modelFullScaling")
-	external fun modelFullScaling(data: IntArray): ULongArray
-
-	/**
-	 * @param data `[x, y]`
-	 * @return SimpleTranslation handle pointers
-	 */
-	@JvmName("modelSimpleTranslation")
-	external fun modelSimpleTranslation(data: FloatArray): ULongArray
+	@JvmName("updateGeneralTransform")
+	external fun updateGeneralTransform(handle: ULong, data: DoubleArray)
 
 	/**
 	 * @param data alpha
-	 * @return AlphaFilter handle pointers
+	 * @return AlphaFilter handle pointer and PrimColorFilter (wide) handle pointer
 	 */
 	@JvmName("filterAlphaFilter")
 	external fun filterAlphaFilter(data: Float): ULongArray
@@ -219,4 +231,91 @@ internal object Mui {
 	 */
 	@JvmName("drawGuiTex")
 	external fun drawGuiTex(canvasHandle: ULong, drawableHandle: ULong, programHandle: ULong, textureHandle: UInt)
+
+	/**
+	 * @return FontManager handle pointer
+	 */
+	@JvmName("newFontManager")
+	external fun newFontManager(): ULong
+
+	/**
+	 * @param managerHandle FontManager handle pointer
+	 * @param windowHandle Window handle pointer
+	 * @return GlyphManager handle pointer
+	 */
+	@JvmName("newGlyphManager")
+	external fun newGlyphManager(managerHandle: ULong, windowHandle: ULong): ULong
+
+	/**
+	 * @param windowHandle Window handle pointer
+	 * @param vsh Window handle pointer
+	 * @param fsh Window handle pointer
+	 * @return TxtProgram handle pointer
+	 */
+	@JvmName("newTxtProgram")
+	external fun newTxtProgram(windowHandle: ULong, vsh: String, fsh: String): ULong
+
+	/**
+	 * @param windowHandle Window handle pointer
+	 * @param geoProgramHandle GeoProgram handle pointer
+	 * @param txtProgramHandle TxtProgram handle pointer
+	 * @return TextRenderer handle pointer
+	 */
+	@JvmName("newTextRenderer")
+	external fun newTextRenderer(windowHandle: ULong, geoProgramHandle: ULong, txtProgramHandle: ULong): ULong
+
+	/**
+	 * @param managerHandle FontManager handle pointer
+	 * @param data1 Font size and line height in pixels
+	 * @param data2 `[r, g, b, a]` in [0,255]
+	 * @return TextRenderingContext handle pointer
+	 */
+	@JvmName("newTextRenderingContext")
+	external fun newTextRenderingContext(managerHandle: ULong, data1: FloatArray, data2: IntArray): ULong
+
+	/**
+	 * @param ctxHandle TextRenderingContext handle pointer
+	 * @param data `[r, g, b, a]` in [0,255]
+	 */
+	@JvmName("setTextRenderingContextColor")
+	external fun setTextRenderingContextColor(ctxHandle: ULong, data: IntArray)
+
+	/**
+	 * @param ctxHandle TextRenderingContext handle pointer
+	 * @param data Font size and line height in pixels
+	 */
+	@JvmName("setTextRenderingContextMetrics")
+	external fun setTextRenderingContextMetrics(ctxHandle: ULong, data: FloatArray)
+
+	/**
+	 * @param ctxHandle TextRenderingContext handle pointer
+	 * @param data Width and height in pixels
+	 */
+	@JvmName("setTextRenderingContextSize")
+	external fun setTextRenderingContextSize(ctxHandle: ULong, data: FloatArray)
+
+	/**
+	 * @param ctxHandle TextRenderingContext handle pointer
+	 * @param text Contents of entire text widget
+	 */
+	@JvmName("setTextRenderingContextText")
+	external fun setTextRenderingContextText(ctxHandle: ULong, text: String)
+
+	/**
+	 * @param canvasHandle Canvas handle pointer
+	 * @param glyphMgrHandle GlyphManager handle pointer
+	 * @param rendererHandle TextRenderer handle pointer
+	 * @param fontMgrHandle FontManager handle pointer
+	 * @param ctxHandle TextRenderingContext handle pointer
+	 * @param data `[x, y]` Position
+	 */
+	@JvmName("renderText")
+	external fun renderText(
+		canvasHandle: ULong,
+		glyphMgrHandle: ULong,
+		rendererHandle: ULong,
+		fontMgrHandle: ULong,
+		ctxHandle: ULong,
+		data: FloatArray,
+	)
 }

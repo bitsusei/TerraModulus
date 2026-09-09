@@ -14,6 +14,10 @@ import kotlin.reflect.KClass
 
 private val logger = logger {}
 
+// TODO add functions that can throw errors in debug and throw warnings in production
+//   This is useful for like when a resource is closed twice, logic error but may likely run fine in production
+//   May also optionally add fallback lambda to be run in production to suppress such error
+
 @OptIn(ExperimentalContracts::class)
 inline fun <R, reified X : Throwable> codeAssert(block: () -> R): R {
 	contract {

@@ -5,8 +5,6 @@
 
 package net.terramodulus.engine
 
-import net.terramodulus.engine.ferricia.Gwr.drawGwrObj
-import net.terramodulus.engine.ferricia.Gwr.geoShaders
 import net.terramodulus.engine.ferricia.Gwr.newCamera
 import net.terramodulus.engine.ferricia.Gwr.refreshCameraPos
 import net.terramodulus.engine.ferricia.Gwr.setCameraZoomLevel
@@ -16,7 +14,7 @@ import kotlin.properties.Delegates
 class Camera3D internal constructor(private val canvas: Canvas, pos: FloatArray) : Closeable {
 	internal val handle = newCamera(canvas.handle, pos)
 
-	fun loadGeoShaders(vsh: String, fsh: String) = geoShaders(vsh, fsh)
+	fun loadGeoShaders(vsh: String, fsh: String) = canvas.load3DGeoShaders(vsh, fsh)
 
 	fun refreshPos(pos: FloatArray) = refreshCameraPos(handle, pos)
 
@@ -25,7 +23,7 @@ class Camera3D internal constructor(private val canvas: Canvas, pos: FloatArray)
 	}
 
 	fun renderGwrGeo(drawable: WorldObjDrawable, programHandle: ULong) =
-		drawGwrObj(canvas.handle, handle, drawable.handle, programHandle)
+		canvas.drawGwrObj(this, drawable, programHandle)
 
 	override fun close() {
 		canvas.camera3D = null

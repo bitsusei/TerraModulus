@@ -5,6 +5,9 @@
 
 package net.terramodulus.engine
 
+import com.cout970.math.vec3.Vec3d
+import net.terramodulus.engine.common.ZeroImmVec3d
+import net.terramodulus.engine.common.toArray
 import net.terramodulus.engine.ferricia.Physics.newPhyCollisionManager
 import net.terramodulus.engine.ferricia.Physics.newPhyWorld
 import net.terramodulus.engine.ferricia.Physics.omitPhyCollisionManagerSpace
@@ -18,7 +21,7 @@ class PhyWorld internal constructor(envHandle: ULong) {
 	private val handle = newPhyWorld(envHandle)
 	private val cmHandle = newPhyCollisionManager()
 
-	var gravity: Vec3D by Delegates.observable(Vec3D.ZERO) { _, _, newValue ->
+	var gravity: Vec3d by Delegates.observable(ZeroImmVec3d) { _, _, newValue ->
 		setPhyWorldGravity(handle, newValue.toArray())
 	}
 

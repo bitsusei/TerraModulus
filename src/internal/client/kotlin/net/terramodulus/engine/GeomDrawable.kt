@@ -11,8 +11,8 @@ import net.terramodulus.engine.ferricia.Mui.newSimpleRectGeom
 sealed class GeomDrawable(handle: ULong) : Drawable(handle) {
 }
 
-class SimpleLineGeom(x0: Int, y0: Int, x1: Int, y1: Int, r: Int, g: Int, b: Int, a: Int) :
-	GeomDrawable(newSimpleLineGeom(intArrayOf(x0, y0, x1, y1, r, g, b, a)))
+class SimpleLineGeom(canvas: Canvas, x0: Int, y0: Int, x1: Int, y1: Int, r: Int, g: Int, b: Int, a: Int) :
+	GeomDrawable(canvas.newSimpleLineGeom(x0, y0, x1, y1, r, g, b, a))
 
-class SimpleRectGeom(x0: Int, y0: Int, x1: Int, y1: Int, r: Int, g: Int, b: Int, a: Int) :
-	GeomDrawable(newSimpleRectGeom(intArrayOf(x0, y0, x1, y1, r, g, b, a)))
+class SimpleRectGeom(canvas: Canvas, x0: Int, y0: Int, x1: Int, y1: Int, r: Int, g: Int, b: Int, a: Int) :
+	GeomDrawable(canvas.newSimpleRectGeom(x0, y0, x1, y1, r, g, b, a))

@@ -6,11 +6,12 @@
 package net.terramodulus.core
 
 import net.terramodulus.common.core.AbstractTerraModulus
-import net.terramodulus.mui.GuiManager
+import net.terramodulus.mui.MuiManager
+import net.terramodulus.mui.gui.GuiManager
 import net.terramodulus.void.World
 
 class TerraModulus internal constructor() : AbstractTerraModulus() {
-	private val guiManager = GuiManager(this)
+	private val muiManager = MuiManager(this)
 	internal var world: World? = null
 
 	override var tps: Int
@@ -18,10 +19,9 @@ class TerraModulus internal constructor() : AbstractTerraModulus() {
 		set(value) {}
 
 	override fun run() {
-		guiManager.showWindow()
+		muiManager.showWindow()
 		while (true) {
-			guiManager.updateCanvas()
-// 			guiManager.updateScreens()
+			muiManager.update()
 			Thread.sleep(1)
 		}
 	}

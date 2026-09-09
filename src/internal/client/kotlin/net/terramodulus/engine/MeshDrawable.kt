@@ -10,6 +10,7 @@ import net.terramodulus.engine.ferricia.Mui.newSpriteMesh
 sealed class MeshDrawable(handle: ULong) : Drawable(handle) {
 }
 
-class SpriteMesh(x0: Int, y0: Int, x1: Int, y1: Int) : MeshDrawable(newSpriteMesh(intArrayOf(x0, y0, x1, y1))) {
+class SpriteMesh(canvas: Canvas, x0: Int, y0: Int, x1: Int, y1: Int) :
+	MeshDrawable(canvas.newSpriteMesh(x0, y0, x1, y1)) {
 
 }
