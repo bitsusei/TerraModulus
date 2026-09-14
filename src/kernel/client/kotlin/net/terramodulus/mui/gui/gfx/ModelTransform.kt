@@ -29,6 +29,40 @@ data class RectStParams(val scaleX: Double, val scaleY: Double, val translateX: 
 			val ty = b.y - a.y * sy
 			return RectStParams(sx, sy, tx, ty)
 		}
+
+		fun withScale(bounds: RectangleD, dir: Direction4A, scale: Double): RectStParams {
+			val sx: Double
+			val sy: Double
+			val tx: Double
+			val ty: Double
+			when (dir) {
+				Direction4A.XPos -> {
+					sx = scale
+					sy = 1.0
+					tx = 0.0
+					ty = 0.0
+				}
+				Direction4A.XNeg -> {
+					sx = scale
+					sy = 1.0
+					tx = bounds.width * (1 - sx)
+					ty = 0.0
+				}
+				Direction4A.YPos -> {
+					sx = 1.0
+					sy = scale
+					tx = 0.0
+					ty = 0.0
+				}
+				Direction4A.YNeg -> {
+					sx = 1.0
+					sy = scale
+					tx = 0.0
+					ty = bounds.height * (1 - sy)
+				}
+			}
+			return RectStParams(sx, sy, tx, ty)
+		}
 	}
 
 	fun applyToGeneralTransform(generalTransform: GeneralTransform) {

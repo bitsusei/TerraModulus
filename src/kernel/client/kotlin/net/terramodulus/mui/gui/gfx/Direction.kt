@@ -11,8 +11,25 @@ package net.terramodulus.mui.gui.gfx
  * Those should be used with care since they are not already interconvertible.
  */
 
-enum class Direction2 {
+/**
+ * Set of 2 (numeric) signed directions
+ */
+enum class Direction2S {
 	Positive, Negative;
+}
+
+/**
+ * Set of 2 diagonal directions
+ */
+enum class Direction2D {
+	Horizontal, Vertical;
+
+	companion object { // aliases
+		val Horiz = Horizontal
+		val Hor = Horizontal
+		val Vert = Vertical
+		val Vrt = Vertical
+	}
 }
 
 /**
@@ -41,6 +58,13 @@ enum class Direction4H {
  */
 enum class Direction4A {
 	XPos, XNeg, YPos, YNeg;
+
+	fun toOppo() = when (this) {
+		XPos -> XNeg
+		XNeg -> XPos
+		YPos -> YNeg
+		YNeg -> YPos
+	}
 }
 
 /**

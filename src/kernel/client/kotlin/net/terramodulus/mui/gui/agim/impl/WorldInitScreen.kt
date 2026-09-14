@@ -11,6 +11,7 @@ import net.terramodulus.mui.gui.agim.ScreenManager
 import net.terramodulus.mui.gui.agim.event.ScreenEvent
 import net.terramodulus.mui.gui.asd.AsdHandle
 import net.terramodulus.mui.gui.gfx.AlphaFilter
+import net.terramodulus.mui.gui.gfx.Dimension2D
 import net.terramodulus.mui.gui.gfx.Direction4A
 import net.terramodulus.mui.gui.gfx.GuiRect
 import net.terramodulus.mui.gui.gfx.GuiSprite
@@ -33,13 +34,10 @@ class WorldInitScreen internal constructor(
 	private var last = System.currentTimeMillis() // timestamp in milliseconds
 	private var alphaFilter = AlphaFilter(0F)
 // 	private val progressBar = ProgressBar(renderSystemHandle)
-	private val progressBarComponent = SliderComponent(
-		Direction4A.XPos,
+	private val progressBarComponent = ScaledBarComponent(
 		renderSystemHandle.canvasHandle,
 		ComponentAsdHandleImpl(),
-		// Not sure why background has to be non-transparent for this to render correctly
-		SliderComponent.Config(ImmVec4i(56, 255, 252, 255), ImmVec4i(59, 12, 120, 255)),
-	).apply {
+	) { config(xPos, ImmVec4i(59, 12, 120, 255), 0.0) }.apply {
 		addFilter(alphaFilter)
 	}
 	override val layout = CompositeLayout(this)

@@ -13,10 +13,8 @@ import net.terramodulus.mui.gui.agim.Layout
 import net.terramodulus.mui.gui.agim.LayoutComputationGroup
 import net.terramodulus.mui.gui.agim.LayoutComputationUnit
 import net.terramodulus.mui.gui.agim.LayoutHandle
-import net.terramodulus.mui.gui.agim.getProperty
 import net.terramodulus.mui.gui.asd.AsdHandle
-import net.terramodulus.mui.gui.gfx.Anchor5
-import net.terramodulus.mui.gui.gfx.Direction2
+import net.terramodulus.mui.gui.gfx.Direction2S
 import net.terramodulus.mui.gui.gfx.RectangleD
 import kotlin.math.max
 
@@ -41,7 +39,7 @@ sealed class SequenceLayout(
 	 * [padding] is the paddings from the four edges.
 	 * [gap] is the gaps only in between elements.
 	 */
-	class Config(val direction: Direction2, val gap: Double = 0.0, val padding: Double = 0.0)
+	class Config(val direction: Direction2S, val gap: Double = 0.0, val padding: Double = 0.0)
 
 	interface ConfigEnv {
 		var config: Config
@@ -99,8 +97,8 @@ class ColumnLayout private constructor(container: Container, elements: ElementLi
 		}, {
 			val containerRect = getUnit(container.asdHandle).getProperty(BoundsProperty.KEY)!!.value
 			val anchor = MutVec2d(containerRect.x + config.padding, when (config.direction) {
-				Direction2.Positive -> containerRect.y + config.padding
-				Direction2.Negative -> containerRect.y + containerRect.height - config.padding
+				Direction2S.Positive -> containerRect.y + config.padding
+				Direction2S.Negative -> containerRect.y + containerRect.height - config.padding
 			})
 			var width = 0.0
 			var height = 0.0
@@ -113,15 +111,15 @@ class ColumnLayout private constructor(container: Container, elements: ElementLi
 			height = max(height - config.gap, 0.0)
 			elements.forEach {
 				val dim = getUnit(it.first.asdHandle).getProperty(IntrinsicDimensionsProperty.KEY)!!
-				if (config.direction == Direction2.Negative) anchor.y -= dim.height.toDouble()
+				if (config.direction == Direction2S.Negative) anchor.y -= dim.height.toDouble()
 				map[it.first.asdHandle] = AgimoPropertyMap().apply {
 					putProperty(BoundsProperty.KEY, BoundsProperty(
 						RectangleD(anchor.x, anchor.y, width, dim.height.toDouble())
 					))
 				}
 				when (config.direction) {
-					Direction2.Positive -> anchor.y += dim.height.toDouble() + config.gap
-					Direction2.Negative -> anchor.y -= config.gap
+					Direction2S.Positive -> anchor.y += dim.height.toDouble() + config.gap
+					Direction2S.Negative -> anchor.y -= config.gap
 				}
 			}
 			map[container.asdHandle] = AgimoPropertyMap().apply {
@@ -168,8 +166,8 @@ class RowLayout private constructor(container: Container, elements: ElementList<
 		}, {
 			val containerRect = getUnit(container.asdHandle).getProperty(BoundsProperty.KEY)!!.value
 			val anchor = MutVec2d(when (config.direction) {
-				Direction2.Positive -> containerRect.x + config.padding
-				Direction2.Negative -> containerRect.x + containerRect.width - config.padding
+				Direction2S.Positive -> containerRect.x + config.padding
+				Direction2S.Negative -> containerRect.x + containerRect.width - config.padding
 			}, containerRect.y + config.gap)
 			var width = 0.0
 			var height = 0.0
@@ -182,15 +180,15 @@ class RowLayout private constructor(container: Container, elements: ElementList<
 			width = max(width - config.gap, 0.0)
 			elements.forEach {
 				val dim = getUnit(it.first.asdHandle).getProperty(IntrinsicDimensionsProperty.KEY)!!
-				if (config.direction == Direction2.Negative) anchor.x -= dim.width.toDouble()
+				if (config.direction == Direction2S.Negative) anchor.x -= dim.width.toDouble()
 				map[it.first.asdHandle] = AgimoPropertyMap().apply {
 					putProperty(BoundsProperty.KEY, BoundsProperty(
 						RectangleD(anchor.x, anchor.y, dim.width.toDouble(), height)
 					))
 				}
 				when (config.direction) {
-					Direction2.Positive -> anchor.x += dim.width.toDouble() + config.gap
-					Direction2.Negative -> anchor.x -= config.gap
+					Direction2S.Positive -> anchor.x += dim.width.toDouble() + config.gap
+					Direction2S.Negative -> anchor.x -= config.gap
 				}
 			}
 			map[container.asdHandle] = AgimoPropertyMap().apply {

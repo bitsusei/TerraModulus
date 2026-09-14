@@ -165,7 +165,7 @@ internal class GameplayScreen(
 			mouseCtxStates.addListener(MouseState.Listener(
 				setOf(MouseState.Trigger(MouseState.Key.Movement) { true })
 			) {
-				when (it) {
+				if (enabled) when (it) {
 					is MouseState.Movement -> {
 						if (prevPos != null) {
 							// Standard tracking aligned with SDL
