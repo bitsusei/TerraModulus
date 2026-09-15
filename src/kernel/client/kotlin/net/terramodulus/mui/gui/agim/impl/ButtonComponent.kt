@@ -17,12 +17,11 @@ class ButtonComponent(
 	asdHandle: AsdHandle,
 	inputStatesHandle: InputStatesHandle,
 	layout: ButtonComponent.() -> Layout,
+	action: () -> Unit,
 ) : AbstractPane(asdHandle) {
 	override val layout = layout(this)
 	private val mouseCtxStates = MouseCtxStates(inputStatesHandle.mouseGlobalStates, asdHandle).apply {
-		addListener(listenRectFullClick(MouseInputHandler.Buttons.Left.id) {
-			println("Hello World!")
-		})
+		addListener(listenRectFullClick(MouseInputHandler.Buttons.Left.id) { action() })
 	}
 
 	override fun render(renderSystem: RenderSystem) = layout.render(renderSystem)

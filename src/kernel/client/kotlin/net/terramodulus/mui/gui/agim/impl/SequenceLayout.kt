@@ -26,7 +26,7 @@ import kotlin.math.max
  */
 sealed class SequenceLayout(
 	container: Container,
-	override val elements: ElementList<Element>,
+	elements: ElementList<Element>,
 	protected var config: Config,
 ) : Layout.ElementGroup<SequenceLayout.Element>(container, elements) {
 	class Element {

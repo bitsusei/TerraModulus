@@ -106,7 +106,7 @@ class WorldInitScreen internal constructor(
 								color = ImmVec4i(255, 255, 255, (alphaFilter.alpha * 255).roundToInt())
 							}
 						}
-					}, SingletonLayout.Config.Absolute.Insets(InsetsD(7.0, 149.0, 7.0, 35.0)))
+					}, SingletonLayout.Config.Absolute.Insets(InsetsD(7.0, 142.0, 7.0, 42.0)))
 				},
 					SizedPane.Config(400u, 200u)), SingletonLayout.Config.Aligned(
 						SingletonLayout.Config.ObjectFit.Contain,

@@ -34,6 +34,7 @@ import net.terramodulus.mui.gui.agim.Screen
 import net.terramodulus.mui.gui.agim.ScreenManager
 import net.terramodulus.mui.gui.agim.event.ScreenEvent
 import net.terramodulus.mui.gui.asd.AsdHandle
+import net.terramodulus.mui.gui.gfx.Direction2S
 import net.terramodulus.mui.gui.gfx.Direction6C
 import net.terramodulus.mui.gui.gfx.GuiLine
 import net.terramodulus.mui.gui.gfx.InsetsD
@@ -101,16 +102,70 @@ internal class GameplayScreen(
 						))
 						add(SingletonLayout(
 							this@GameplayScreen,
-							ButtonComponent(ComponentAsdHandleImpl(), inputStatesHandle) {
+							ButtonComponent(ComponentAsdHandleImpl(), inputStatesHandle, {
 								SingletonLayout(this, TextDisplayComponent(
 									ComponentAsdHandleImpl(),
 									renderSystemHandle,
 									TextContext.Config(24.0F, 24.0F, ImmVec4i(255)),
 								).apply {
-									text = "Button"
+									text = "Button\nABC"
 								}, SingletonLayout.Config.Absolute.Full)
-							},
+							}) { println("Button reacted.") },
 							SingletonLayout.Config.Absolute.Insets(InsetsD(20.0, 0.0, 0.0, 300.0)),
+						))
+						add(SingletonLayout(
+							this@GameplayScreen,
+							SimplePane(ComponentAsdHandleImpl()) {
+								ColumnLayout.withComponents(listOf(
+									SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl()) {
+										val parent = this
+										CompositeLayout(this).apply {
+											val slider: SliderComponent
+											lateinit var listener: (Double) -> Unit
+											add(SingletonLayout(parent, SliderComponent(
+												renderSystemHandle.canvasHandle,
+												inputStatesHandle, ComponentAsdHandleImpl()
+											) {
+												config(withRanged(-1.0..5.0, 0.0) { listener(it) },
+													xPos, ImmVec4i(123, 234, 56, 255), ImmVec4i(50, 50, 250, 255))
+											}.apply { slider = this }, SingletonLayout.Config.Absolute.Full))
+											add(SingletonLayout(parent,
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(25F, 25F, ImmVec4i(255))
+												).apply {
+													text = "0.0"
+													listener = { text = "$it" }
+												},
+												SingletonLayout.Config.Absolute.Full,
+											))
+										}
+									}, SizedPane.Config(100u, 25u)),
+									SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl()) {
+										val parent = this
+										CompositeLayout(this).apply {
+											val slider: SliderComponent
+											lateinit var listener: (Int) -> Unit
+											add(SingletonLayout(parent, SliderComponent(
+												renderSystemHandle.canvasHandle,
+												inputStatesHandle, ComponentAsdHandleImpl()
+											) {
+												config(withPoints(6, 1) { listener(it) },
+													xPos, ImmVec4i(203, 234, 56, 255), ImmVec4i(50, 50, 250, 255))
+											}.apply { slider = this }, SingletonLayout.Config.Absolute.Full))
+											add(SingletonLayout(parent,
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(25F, 25F, ImmVec4i(255))
+												).apply {
+														text = "1"
+														listener = { text = "$it" }
+												},
+												SingletonLayout.Config.Absolute.Full,
+											))
+										}
+									}, SizedPane.Config(100u, 25u)),
+								), SequenceLayout.Config(Direction2S.Negative))(this)
+							},
+							SingletonLayout.Config.Absolute.Insets(InsetsD(20.0, 180.0, 0.0, 200.0)),
 						))
 						add(SingletonLayout(
 							this@GameplayScreen,

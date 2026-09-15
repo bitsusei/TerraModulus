@@ -24,6 +24,6 @@ sealed class InputGlobalStates<S : InputState, K : Any> {
 	}
 
 	internal fun triggerListeners(key: K, state: S) {
-		triggers[key]?.forEach { listeners[it]!!.act(state) }
+		triggers[key]?.forEach { if (it.check(state)) listeners[it]!!.act(state) }
 	}
 }
