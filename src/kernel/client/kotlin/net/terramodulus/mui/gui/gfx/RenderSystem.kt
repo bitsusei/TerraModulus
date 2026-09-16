@@ -6,6 +6,7 @@
 package net.terramodulus.mui.gui.gfx
 
 import com.cout970.math.vec2.Vec2f
+import com.cout970.math.vec2.Vec2i
 import com.cout970.math.vec3.Vec3f
 import com.cout970.math.vec4.Vec4i
 import net.terramodulus.core.TerraModulus
@@ -51,6 +52,18 @@ class RenderSystem internal constructor(private val core: TerraModulus, private 
 		fun renderText(ctx: TextRenderingContext, pos: Vec2f)
 
 		fun newTextRenderingContext(fontSize: Float, lineHeight: Float, color: Vec4i): TextRenderingContext
+
+		fun <R> withScissor(pos: Vec2i, size: Dimension2I, block: () -> R): R
+	}
+
+	inner class ScissorSession internal constructor(pos: Vec2i, size: Dimension2I) : AutoCloseable {
+		init {
+			canvas.enableScissor(pos.x, pos.y, size.width.toUInt(), size.height.toUInt())
+		}
+
+		override fun close() {
+			canvas.disableScissor()
+		}
 	}
 
 	inner class CanvasHandle internal constructor() {
@@ -72,6 +85,9 @@ class RenderSystem internal constructor(private val core: TerraModulus, private 
 
 		override fun newTextRenderingContext(fontSize: Float, lineHeight: Float, color: Vec4i) =
 			fontManager.newTextRenderingManager(fontSize, lineHeight, color)
+
+		override fun <R> withScissor(pos: Vec2i, size: Dimension2I, block: () -> R) =
+			ScissorSession(pos, size).use { _ -> block() }
 	}
 
 	internal fun newGameplayScreen(pos: Vec3f) =

@@ -326,4 +326,17 @@ internal object Mui {
 		ctxHandle: ULong,
 		data: FloatArray,
 	)
+
+	/**
+	 * @param canvasHandle Canvas handle pointer
+	 * @param data `[x, y, w, h]` scissor box in window coordinates
+	 */
+	@JvmName("enableScissor")
+	external fun enableScissor(canvasHandle: ULong, data: IntArray)
+
+	/**
+	 * @param canvasHandle Canvas handle pointer
+	 */
+	@JvmName("disableScissor")
+	external fun disableScissor(canvasHandle: ULong)
 }

@@ -11,9 +11,11 @@ import net.terramodulus.engine.ferricia.Gwr.newMeshGeomCube
 import net.terramodulus.engine.ferricia.Gwr.newMeshGeomSphere
 import net.terramodulus.engine.ferricia.Mui
 import net.terramodulus.engine.ferricia.Mui.clearCanvas
+import net.terramodulus.engine.ferricia.Mui.disableScissor
 import net.terramodulus.engine.ferricia.Mui.drawGuiGeo
 import net.terramodulus.engine.ferricia.Mui.drawGuiTex
 import net.terramodulus.engine.ferricia.Mui.dropCanvasHandle
+import net.terramodulus.engine.ferricia.Mui.enableScissor
 import net.terramodulus.engine.ferricia.Mui.geoShaders
 import net.terramodulus.engine.ferricia.Mui.getGLVersion
 import net.terramodulus.engine.ferricia.Mui.initCanvasHandle
@@ -88,6 +90,10 @@ class Canvas internal constructor(private val windowHandle: ULong) : Closeable {
 
 	internal fun drawGwrObj(camera3D: Camera3D, drawable: WorldObjDrawable, programHandle: ULong) =
 		drawGwrObj(windowHandle, handle, camera3D.handle, drawable.handle, programHandle)
+
+	fun enableScissor(x: Int, y: Int, w: UInt, h: UInt) = enableScissor(handle, intArrayOf(x, y, w.toInt(), h.toInt()))
+
+	fun disableScissor() = disableScissor(handle)
 
 	override fun close() {
 		dropCanvasHandle(handle)

@@ -5,9 +5,12 @@
 
 package net.terramodulus.mui.gui.agim
 
+import com.cout970.math.vec2.ImmVec2i
+import net.terramodulus.mui.gui.gfx.Dimension2I
 import net.terramodulus.mui.gui.gfx.RenderSystem
 import java.io.Closeable
 import java.util.ArrayDeque
+import kotlin.math.roundToInt
 
 /**
  * [Layout] is always mutable.
@@ -71,7 +74,13 @@ abstract class Layout(protected val container: Container) : Closeable {
 	/**
 	 * Renders this [Layout] with underlying managed [components].
 	 */
-	internal fun render(renderSystem: RenderSystem) = components.forEach { it.render(renderSystem) }
+	internal fun render(renderSystem: RenderSystem) = components.forEach {
+		val rect = it.asdHandle.rect
+		renderSystem.handle.withScissor(
+			ImmVec2i(rect.x.roundToInt(), rect.y.roundToInt()),
+			Dimension2I(rect.width.toInt(), rect.height.toInt()),
+		) { it.render(renderSystem) }
+	}
 
 	/**
 	 * Must be invoked when this [Layout] is no longer in use.
