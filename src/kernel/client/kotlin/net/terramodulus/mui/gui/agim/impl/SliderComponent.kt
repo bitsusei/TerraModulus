@@ -15,6 +15,10 @@ import net.terramodulus.mui.gui.gfx.Direction4A
 import net.terramodulus.mui.gui.gfx.GuiRect
 import net.terramodulus.mui.gui.gfx.RenderSystem
 import net.terramodulus.mui.kui.MouseInputHandler
+import kotlin.math.abs
+import kotlin.math.log
+import kotlin.math.log2
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
@@ -64,17 +68,84 @@ class SliderComponent private constructor(
 			}
 		}
 
-		class Ranged(val range: ClosedFloatingPointRange<Double>, val reaction: (Double) -> Unit) : SliderMode() {
+		class Ranged(
+			val range: ClosedFloatingPointRange<Double>,
+			val reaction: (Double) -> Unit,
+			val transform: Transform = Transform.Linear,
+		) : SliderMode() {
+			interface Transform {
+				/**
+				 * Projects a value in the [range] to a fraction in `[0,1]`.
+				 */
+				fun project(value: Double, range: ClosedFloatingPointRange<Double>): Double
+
+				/**
+				 * Back-projects a fraction in `[0,1]` to a value in the [range].
+				 */
+				fun backProject(value: Double, range: ClosedFloatingPointRange<Double>): Double
+
+				data object Linear : Transform {
+					override fun project(value: Double, range: ClosedFloatingPointRange<Double>) =
+						(value - range.start) / (range.endInclusive - range.start)
+
+					override fun backProject(value: Double, range: ClosedFloatingPointRange<Double>) =
+						value * (range.endInclusive - range.start) + range.start
+				}
+
+				data class Exponential(val base: Double) : Transform {
+					init {
+						require(base > 0.0 && base != 1.0)
+					}
+
+					override fun project(value: Double, range: ClosedFloatingPointRange<Double>) =
+						log2((value - range.start) / (range.endInclusive - range.start) * (base - 1) + 1) / log2(base)
+
+					override fun backProject(value: Double, range: ClosedFloatingPointRange<Double>) =
+						(base.pow(value) - 1) / (base - 1) * (range.endInclusive - range.start) + range.start
+				}
+
+				data class LinearExponential(val base: Double) : Transform {
+					init {
+						require(base > 0.0 && base != 1.0)
+					}
+
+					override fun project(value: Double, range: ClosedFloatingPointRange<Double>): Double {
+						val m = log(range.start, base)
+						val n = log(range.endInclusive, base)
+						return (log(value, base) - m) / (n - m)
+					}
+
+					override fun backProject(value: Double, range: ClosedFloatingPointRange<Double>): Double {
+						val m = log(range.start, base)
+						val n = log(range.endInclusive, base)
+						return base.pow(m + (n - m) * value)
+					}
+				}
+
+				data class Logarithmic(val base: Double) : Transform {
+					init {
+						require(base > 0.0 && base != 1.0)
+					}
+
+					override fun project(value: Double, range: ClosedFloatingPointRange<Double>) =
+						(2.0.pow((value - range.start) / (range.endInclusive - range.start) * log2(base)) - 1) /
+							(base - 1)
+
+					override fun backProject(value: Double, range: ClosedFloatingPointRange<Double>) =
+						log2(value * (base - 1) + 1) / log2(base) * (range.endInclusive - range.start) + range.start
+				}
+			}
+
 			override fun translate(fraction: Double) = null
 
-			override fun react(fraction: Double) = reaction(fraction * (range.endInclusive - range.start) + range.start)
+			override fun react(fraction: Double) = reaction(transform.backProject(fraction, range))
 
 			/**
 			 * @param value must be [Double] in [range]
 			 */
 			override fun getFraction(value: Any): Double {
 				require(value is Double && value in range)
-				return (value - range.start) / (range.endInclusive - range.start)
+				return transform.project(value, range)
 			}
 		}
 	}
@@ -91,6 +162,15 @@ class SliderComponent private constructor(
 			SliderMode.Points(length, reaction).let { it to it.getFraction(init) }
 		fun withRanged(range: ClosedFloatingPointRange<Double>, init: Double, reaction: (Double) -> Unit) =
 			SliderMode.Ranged(range, reaction).let { it to it.getFraction(init) }
+		fun withRanged(
+			range: ClosedFloatingPointRange<Double>,
+			init: Double,
+			transform: SliderMode.Ranged.Transform,
+			reaction: (Double) -> Unit,
+		) = SliderMode.Ranged(range, reaction, transform).let { it to it.getFraction(init) }
+		fun transformExponential(base: Double) = SliderMode.Ranged.Transform.Exponential(base)
+		fun transformLinearExponential(base: Double) = SliderMode.Ranged.Transform.LinearExponential(base)
+		fun transformLogarithmic(base: Double) = SliderMode.Ranged.Transform.Logarithmic(base)
 		fun config(mode: Pair<SliderMode, Double>, dir: Direction4A, bgColor: Vec4i, fgColor: Vec4i) =
 			Config(mode.first, dir, bgColor, fgColor, mode.second)
 	}

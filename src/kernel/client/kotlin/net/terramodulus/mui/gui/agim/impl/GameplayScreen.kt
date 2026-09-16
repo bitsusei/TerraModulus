@@ -38,6 +38,7 @@ import net.terramodulus.mui.gui.agim.ScreenManager
 import net.terramodulus.mui.gui.agim.event.MenuEvent
 import net.terramodulus.mui.gui.agim.event.ScreenEvent
 import net.terramodulus.mui.gui.asd.AsdHandle
+import net.terramodulus.mui.gui.gfx.AlphaFilter
 import net.terramodulus.mui.gui.gfx.Direction2S
 import net.terramodulus.mui.gui.gfx.Direction6C
 import net.terramodulus.mui.gui.gfx.GuiLine
@@ -112,81 +113,106 @@ internal class GameplayScreen(
 						))
 						add(SingletonLayout(
 							this@GameplayScreen,
-							ButtonComponent(ComponentAsdHandleImpl(), inputStatesHandle, {
-								CompositeLayout(this) {
-									add(SingletonLayout(this@ButtonComponent, GeomComponent(
-										GuiRect(canvasHandle, 0, 0, 1, 1, 122, 122, 0, 255),
-										RectangleD(0.0, 0.0, 1.0, 1.0),
-										ComponentAsdHandleImpl(),
-									), SingletonLayout.Config.Absolute.Full))
-									add(SingletonLayout(this@ButtonComponent, TextDisplayComponent(
-										ComponentAsdHandleImpl(),
-										renderSystemHandle,
-										TextContext.Config(20F, 20F, ImmVec4i(255)),
-									).apply {
-										text = "Query..."
-									}, SingletonLayout.Config.Sole(SingletonLayout.Config.Scaled.Scale(1.0))))
-								}
-							}) {
-								managerHandle.addMenu { handle, asdHandle ->
-									object : Menu(handle, asdHandle) {
-										override val layout = with(this) menu@ {
-											fun command(label: String, action: () -> Unit) =
-												ButtonComponent(ComponentAsdHandleImpl().apply {
-													observeRect { println(rect) }
-												}, inputStatesHandle, {
-													SingletonLayout(this@ButtonComponent, TextDisplayComponent(
-														ComponentAsdHandleImpl(),
-														renderSystemHandle,
-														TextContext.Config(20F, 20F, ImmVec4i(255)),
-													).apply { text = label }, SingletonLayout.Config.Sole(
-														SingletonLayout.Config.Scaled.Scale(1.0)
+							SimplePane(ComponentAsdHandleImpl()) {
+								ColumnLayout.withElements(
+									ButtonComponent(ComponentAsdHandleImpl(), inputStatesHandle, {
+										CompositeLayout(this) {
+											add(SingletonLayout(this@ButtonComponent, GeomComponent(
+												GuiRect(canvasHandle, 0, 0, 1, 1, 122, 122, 0, 255),
+												RectangleD(0.0, 0.0, 1.0, 1.0),
+												ComponentAsdHandleImpl(),
+											), SingletonLayout.Config.Absolute.Full))
+											add(SingletonLayout(
+												this@ButtonComponent, TextDisplayComponent(
+												ComponentAsdHandleImpl(),
+												renderSystemHandle,
+												TextContext.Config(20F, 20F, ImmVec4i(255)),
+											).apply {
+												text = "Query..."
+											}, SingletonLayout.Config.Sole(SingletonLayout.Config.Scaled.Scale(1.0))))
+										}
+									}) {
+										managerHandle.addMenu { handle, asdHandle ->
+											object : Menu(handle, asdHandle) {
+												override val layout = with(this) menu@ {
+													fun command(label: String, action: () -> Unit) =
+														ButtonComponent(ComponentAsdHandleImpl().apply {
+															observeRect { println(rect) }
+														}, inputStatesHandle, {
+															SingletonLayout(this@ButtonComponent, TextDisplayComponent(
+																ComponentAsdHandleImpl(),
+																renderSystemHandle,
+																TextContext.Config(20F, 20F, ImmVec4i(255)),
+															).apply { text = label }, SingletonLayout.Config.Sole(
+																SingletonLayout.Config.Scaled.Scale(1.0)
+															))
+														}) {
+															action()
+															exit()
+														}
+													SingletonLayout(this, SimplePane(ComponentAsdHandleImpl()) parent@ {
+														CompositeLayout(this) {
+															add(SingletonLayout(this@parent, GeomComponent(
+																GuiRect(canvasHandle, 0, 0, 1, 1, 122, 122, 128, 255),
+																RectangleD(0.0, 0.0, 1.0, 1.0),
+																ComponentAsdHandleImpl(),
+															), SingletonLayout.Config.Absolute.Full))
+															add(ColumnLayout.withComponents(listOf(
+																command("Position of Sphere", ::queryPos),
+																command("Velocity of Sphere", ::queryVec),
+																command("Gravity of World", ::queryGravity),
+																command("Friction of World", ::queryFriction),
+															), config = SequenceLayout.Config(
+																Direction2S.Negative,
+																intrinsic = true,
+															))(this@parent))
+														}
+													}, SingletonLayout.Config.Auto(
+														SingletonLayout.Config.Auto.Side(Direction2S.Positive, 0.0),
+														SingletonLayout.Config.Auto.Side(Direction2S.Positive, 20.0),
 													))
-												}) {
-													action()
-													exit()
 												}
-											SingletonLayout(this, SimplePane(ComponentAsdHandleImpl()) {
-												CompositeLayout(this) {
-													add(SingletonLayout(this@SimplePane, GeomComponent(
-														GuiRect(canvasHandle, 0, 0, 1, 1, 122, 122, 128, 255),
-														RectangleD(0.0, 0.0, 1.0, 1.0),
-														ComponentAsdHandleImpl(),
-													), SingletonLayout.Config.Absolute.Full))
-													add(ColumnLayout.withComponents(listOf(
-														command("Position of Sphere", ::queryPos),
-														command("Velocity of Sphere", ::queryVec),
-														command("Gravity of World", ::queryGravity),
-														command("Friction of World", ::queryFriction),
-													), config = SequenceLayout.Config(
-														Direction2S.Negative,
-														intrinsic = true,
-													))(this@SimplePane))
+
+												init {
+													// just a quick hack but this certainly needs to be changed
+													asdHandle.properties.putProperty(
+														BoundsProperty.KEY,
+														BoundsProperty(this@GameplayScreen.asdHandle.rect)
+													)
+													this@GameplayScreen.asdHandle.observeRect {
+														asdHandle.properties.putProperty(
+															BoundsProperty.KEY,
+															BoundsProperty(this@GameplayScreen.asdHandle.rect)
+														)
+													}
+
+													addListener(MenuEvent.Update::class.java) {
+														if (it.muiIoI.inputSystem.condition { keyboard { Escape.justDown } })
+															exit()
+													}
 												}
-											}, SingletonLayout.Config.Auto(
-												SingletonLayout.Config.Auto.Side(Direction2S.Positive, 0.0),
-												SingletonLayout.Config.Auto.Side(Direction2S.Positive, 20.0),
-											))
-										}
 
-										init {
-											// just a quick hack but this certainly needs to be changed
-											asdHandle.properties.putProperty(BoundsProperty.KEY,
-												BoundsProperty(this@GameplayScreen.asdHandle.rect))
-											this@GameplayScreen.asdHandle.observeRect {
-												asdHandle.properties.putProperty(BoundsProperty.KEY,
-													BoundsProperty(this@GameplayScreen.asdHandle.rect))
-											}
-
-											addListener(MenuEvent.Update::class.java) {
-												if (it.muiIoI.inputSystem.condition { keyboard { Escape.justDown } })
-													exit()
+												fun exit() = handle.removeMenu(this)
 											}
 										}
-
-										fun exit() = handle.removeMenu(this)
-									}
-								}
+									} to SequenceLayout.Element(1.0),
+									ButtonComponent(ComponentAsdHandleImpl(), inputStatesHandle, button@ {
+										CompositeLayout(this) {
+											add(SingletonLayout(this@button, GeomComponent(GuiRect(canvasHandle,
+												0, 0, 1, 1, 122, 122, 255, 255,
+											), RectangleD(0.0, 0.0, 1.0, 1.0), ComponentAsdHandleImpl()),
+												SingletonLayout.Config.Absolute.Full))
+											add(SingletonLayout(this@button, TextDisplayComponent(
+												ComponentAsdHandleImpl(),
+												renderSystemHandle,
+												TextContext.Config(20F, 20F, ImmVec4i(255)),
+											).apply {
+												text = "Reset Velocity to 0"
+											}, SingletonLayout.Config.Sole(SingletonLayout.Config.Scaled.Scale(1.0))))
+										}
+									}, ::resetVel) to SequenceLayout.Element(1.0),
+									config = SequenceLayout.Config(Direction2S.Negative, intrinsic = true)
+								)(this)
 							},
 							SingletonLayout.Config.Aligned(
 								SingletonLayout.Config.Scaled.Scale(1.0),
@@ -217,6 +243,15 @@ internal class GameplayScreen(
 												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
 													TextContext.Config(20F, 20F, ImmVec4i(255)),
 												).apply { text = "Gravity (-y)" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Friction Mode" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Friction (Limited mode)" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Zoom Level" },
 											), SequenceLayout.Config(Direction2S.Negative, intrinsic = true))(this)
 										} to SequenceLayout.Element(1.0),
 										SimplePane(ComponentAsdHandleImpl()) {
@@ -255,13 +290,14 @@ internal class GameplayScreen(
 														}.apply {
 															gravityListener = {
 																val v = -core.world!!.gravity.y
-																fraction = (v - MIN_GRAVITY) / MAX_GRAVITY - MIN_GRAVITY
+																fraction = SliderComponent.SliderMode.Ranged.Transform
+																	.Linear.project(v, MIN_GRAVITY..MAX_GRAVITY)
 																listener(v)
 															}
 														}, SingletonLayout.Config.Absolute.Full))
 														add(SingletonLayout(this@parent, TextDisplayComponent(
 															ComponentAsdHandleImpl(), renderSystemHandle,
-															TextContext.Config(25F, 25F, ImmVec4i(255))
+															TextContext.Config(20F, 20F, ImmVec4i(255))
 														).apply {
 															listener = { it: Double ->
 																text = String.format("%.2f", it)
@@ -269,6 +305,162 @@ internal class GameplayScreen(
 														}, SingletonLayout.Config.Absolute.Full))
 													}
 												}, SizedPane.Config(100u, 20u)),
+												ButtonComponent(
+													ComponentAsdHandleImpl(),
+													inputStatesHandle,
+													{
+														SingletonLayout(this, TextDisplayComponent(
+															ComponentAsdHandleImpl(),
+															renderSystemHandle,
+															TextContext.Config(20F, 20F, ImmVec4i(255)),
+														).apply {
+															frictionModeListener = {
+																operate { text = core.world!!.frictionMode.toString() }
+															}.apply { this() }
+														}, SingletonLayout.Config.Sole(
+															SingletonLayout.Config.Scaled.Scale(1.0)
+														))
+													},
+												) {
+													core.world!!.frictionMode = World.FrictionMode.entries[
+														(core.world!!.frictionMode.ordinal + 1) % World.FrictionMode.entries.size
+													]
+													frictionModeListener()
+												},
+												SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl())
+												parent@ {
+													CompositeLayout(this).apply {
+														lateinit var listener: (Double) -> Unit
+														add(SingletonLayout(this@parent, SliderComponent(
+															canvasHandle, inputStatesHandle, ComponentAsdHandleImpl()
+														) {
+															config(withRanged(
+																MIN_FRICTION..MAX_FRICTION,
+																core.world!!.friction,
+																transformLinearExponential(2.0),
+															) {
+																core.world!!.friction = it
+																listener(it)
+															}, xPos, ImmVec4i(123, 234, 56, 255),
+																ImmVec4i(50, 50, 250, 255),
+															)
+														}.apply {
+															frictionListener = {
+																val v = core.world!!.friction
+																fraction = SliderComponent.SliderMode.Ranged.Transform
+																	.LinearExponential(2.0)
+																	.project(v, MIN_FRICTION..MAX_FRICTION)
+																listener(v)
+															}
+														}, SingletonLayout.Config.Absolute.Full))
+														add(SingletonLayout(this@parent, TextDisplayComponent(
+															ComponentAsdHandleImpl(), renderSystemHandle,
+															TextContext.Config(20F, 20F, ImmVec4i(255))
+														).apply {
+															listener = { it: Double ->
+																text = String.format("%.2f", it)
+															}.apply { this(core.world!!.friction) }
+														}, SingletonLayout.Config.Absolute.Full))
+													}
+												}, SizedPane.Config(100u, 20u)),
+												SimplePane(ComponentAsdHandleImpl()) {
+													lateinit var listener1: () -> Unit
+													lateinit var listener2: () -> Unit
+													lateinit var listenerTxt: (Float) -> Unit
+													zoomLvlListener = {
+														listener1()
+														listener2()
+														listenerTxt(camera.zoomLevel)
+													}
+													val filter1 = AlphaFilter(1F)
+													val filter2 = AlphaFilter(1F)
+													RowLayout.withComponents(listOf(
+														ButtonComponent(
+															ComponentAsdHandleImpl(), inputStatesHandle,
+															{
+																SingletonLayout(
+																	this, DrawablesComponent(
+																		sequenceOf(
+																			DrawablesComponent.Drawable(
+																				GuiLine(canvasHandle,
+																					1, 2, 3, 2, 255, 255, 255, 255
+																				)
+																			),
+																		), RectangleD(
+																			0.0, 0.0, 4.0, 4.0
+																		), ComponentAsdHandleImpl()
+																	).apply {
+																		addFilter(filter1)
+																		listener1 = {
+																			if (camera.zoomLevel > MIN_ZOOM)
+																				filter1.alpha = 1F
+																			else
+																				filter1.alpha = .5F
+																		}
+																	},
+																	SingletonLayout.Config.Sole(
+																		SingletonLayout.Config.Scaled.Scale(20 / 4.0)
+																	)
+																)
+															},
+														) {
+															if (camera.zoomLevel > MIN_ZOOM) {
+																camera.zoomLevel /= 2
+																zoomLvlListener()
+															}
+														},
+														TextDisplayComponent(ComponentAsdHandleImpl(),
+															renderSystemHandle,
+															TextContext.Config(20F, 20F, ImmVec4i(255)),
+														).apply {
+															listenerTxt = { it: Float -> text = "$it" }.apply {
+																this(camera.zoomLevel)
+															}
+														},
+														ButtonComponent(
+															ComponentAsdHandleImpl(), inputStatesHandle,
+															{
+																SingletonLayout(
+																	this, DrawablesComponent(
+																		sequenceOf(
+																			DrawablesComponent.Drawable(
+																				GuiLine(
+																					canvasHandle,
+																					1, 2, 3, 2, 255, 255, 255, 255
+																				)
+																			),
+																			DrawablesComponent.Drawable(
+																				GuiLine(
+																					canvasHandle,
+																					2, 1, 2, 3, 255, 255, 255, 255
+																				)
+																			),
+																		), RectangleD(
+																			0.0, 0.0, 4.0, 4.0
+																		), ComponentAsdHandleImpl()
+																	).apply {
+																		addFilter(filter2)
+																		listener2 = {
+																			if (camera.zoomLevel < MAX_ZOOM)
+																				filter2.alpha = 1F
+																			else
+																				filter2.alpha = .5F
+																		}
+																	},
+																	SingletonLayout.Config.Sole(
+																		SingletonLayout.Config.Scaled.Scale(20 / 4.0)
+																	)
+																)
+															},
+														) {
+															if (camera.zoomLevel < MAX_ZOOM) {
+																camera.zoomLevel *= 2
+																zoomLvlListener()
+															}
+														},
+													), SequenceLayout.Config(Direction2S.Positive, intrinsic = true)
+													)(this)
+												},
 											), SequenceLayout.Config(Direction2S.Negative, intrinsic = true))(this)
 										} to SequenceLayout.Element(1.0),
 										config = SequenceLayout.Config(Direction2S.Positive, 2.0, 2.0, true),
@@ -481,10 +673,19 @@ internal class GameplayScreen(
 		logger.info { "Friction: ${core.world!!.friction}; mode: ${core.world!!.frictionMode}" }
 	}
 
+	/**
+	 * Reset velocity of sphere to zero
+	 */
+	private fun resetVel() {
+		player.phyBody.linearVel = ZeroImmVec3d
+		logger.info { "Reset velocity to zero" }
+	}
+
 	private lateinit var gravityModeListener: () -> Unit
 	private lateinit var gravityListener: () -> Unit
 	private lateinit var frictionModeListener: () -> Unit
 	private lateinit var frictionListener: () -> Unit
+	private lateinit var zoomLvlListener: () -> Unit
 
 	private fun update0(muiIoI: ScreenManager.MuiIoI) {
 		val inputSystem = muiIoI.inputSystem
@@ -583,11 +784,7 @@ internal class GameplayScreen(
 					}
 				}
 			}
-			if (inputSystem.condition { keyboard { N.justDown } }) {
-				// Reset velocity of sphere to zero
-				player.phyBody.linearVel = ZeroImmVec3d
-				logger.info { "Reset velocity to zero" }
-			}
+			if (inputSystem.condition { keyboard { N.justDown } }) resetVel()
 			// This is problematic and difficult to be resolved.
 	// 		if (inputSystem.condition { Z.justDown() }) {
 	// 			// Reset position of sphere to spawn point
@@ -599,6 +796,7 @@ internal class GameplayScreen(
 				if (camera.zoomLevel < MAX_ZOOM) {
 					camera.zoomLevel *= 2
 					logger.info { "Zoomed in: ${camera.zoomLevel}" }
+					zoomLvlListener()
 				} else {
 					logger.info { "Zoom maximized: ${camera.zoomLevel}" }
 				}
@@ -608,6 +806,7 @@ internal class GameplayScreen(
 				if (camera.zoomLevel > MIN_ZOOM) {
 					camera.zoomLevel /= 2
 					logger.info { "Zoomed out: ${camera.zoomLevel}" }
+					zoomLvlListener()
 				} else {
 					logger.info { "Zoom minimized: ${camera.zoomLevel}" }
 				}
