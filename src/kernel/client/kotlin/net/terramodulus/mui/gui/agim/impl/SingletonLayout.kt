@@ -14,9 +14,9 @@ import net.terramodulus.mui.gui.agim.Layout
 import net.terramodulus.mui.gui.agim.LayoutComputationGroup
 import net.terramodulus.mui.gui.agim.LayoutComputationUnit
 import net.terramodulus.mui.gui.agim.LayoutHandle
-import net.terramodulus.mui.gui.agim.getProperty
 import net.terramodulus.mui.gui.asd.AsdHandle
 import net.terramodulus.mui.gui.gfx.Dimension2D
+import net.terramodulus.mui.gui.gfx.Direction2S
 import net.terramodulus.mui.gui.gfx.InsetsD
 import net.terramodulus.mui.gui.gfx.RectangleD
 import kotlin.math.max
@@ -57,12 +57,53 @@ class SingletonLayout(container: Container, component: Component, private var co
 			}
 		}
 
-		data class Aligned(val config: Relative, val alignment: AlignmentConfig) : Config() {
-			private operator fun RectangleD.times(other: AlignmentConfig) =
-				ImmVec2d(width * other.x, height * other.y)
-			private operator fun Dimension2D.times(other: AlignmentConfig) =
-				ImmVec2d(width * other.x, height * other.y)
+		/**
+		 * Automatically inducing full insets by only two distinct sides of insets and intrinsic dimensions.
+		 */
+		data class Auto(val x: Side, val y: Side) : Config() {
+			data class Side(val dir: Direction2S, val offset: Double)
 
+			override fun layOut(layout: SingletonLayout) = setOf(LayoutComputationUnit({
+				put(layout.container.asdHandle, setOf(RectangleProperty.KEY, BoundsProperty.KEY))
+				put(layout.component.asdHandle, setOf(IntrinsicDimensionsProperty.KEY))
+			}, {
+				put(layout.component.asdHandle, setOf(BoundsProperty.KEY))
+			}, {
+				mapOf(layout.component.asdHandle to AgimoPropertyMap().apply {
+					val prop = getUnit(layout.container.asdHandle)
+					val rect = prop.getProperty(RectangleProperty.KEY)?.value
+						?: prop.getProperty(BoundsProperty.KEY)!!.value
+					val dims = getUnit(layout.component.asdHandle).getProperty(IntrinsicDimensionsProperty.KEY)!!
+					val left: Double
+					val top: Double
+					val right: Double
+					val bottom: Double
+					when (x.dir) {
+						Direction2S.Positive -> {
+							right = x.offset
+							left = rect.width - x.offset - dims.width.toDouble()
+						}
+						Direction2S.Negative -> {
+							left = x.offset
+							right = rect.width - x.offset - dims.width.toDouble()
+						}
+					}
+					when (y.dir) {
+						Direction2S.Positive -> {
+							top = y.offset
+							bottom = rect.height - y.offset - dims.height.toDouble()
+						}
+						Direction2S.Negative -> {
+							bottom = y.offset
+							top = rect.height - y.offset - dims.height.toDouble()
+						}
+					}
+					putProperty(BoundsProperty.KEY, BoundsProperty(rect - InsetsD(left, top, right, bottom)))
+				})
+			}))
+		}
+
+		data class Aligned(val config: Relative, val alignment: AlignmentConfig) : Config() {
 			override fun layOut(layout: SingletonLayout): Set<LayoutComputationUnit> =
 				setOf(LayoutComputationUnit(config.dependencies(layout), {
 					put(layout.component.asdHandle, setOf(BoundsProperty.KEY))
@@ -73,11 +114,44 @@ class SingletonLayout(container: Container, component: Component, private var co
 							?: prop.getProperty(BoundsProperty.KEY)!!.value
 						val target = config.compute(layout, this@LayoutComputationUnit)
 						putProperty(BoundsProperty.KEY, BoundsProperty(
-							AnchorAlignmentHelper.Subject(rect.toDouble(), rect * alignment)
-								.alignTarget(AnchorAlignmentHelper.Target(target, target * alignment))
+							AnchorAlignmentHelper.simple(rect, target, ImmVec2d(alignment.x, alignment.y))
 						))
 					})
 				}))
+		}
+
+		/**
+		 * Configuration where both intrinsic properties and bounds are transmissive:
+		 * - intrinsic properties are transmitted from inner to outer
+		 * - bounds and rectangle are transmitted from outer to inner
+		 */
+		data class Sole(val config: Scaled) : Config() {
+			override fun layOut(layout: SingletonLayout): Set<LayoutComputationUnit> = setOf(
+				LayoutComputationUnit({
+					put(layout.component.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, IntrinsicRatioProperty.KEY))
+				}, {
+					put(layout.container.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, IntrinsicRatioProperty.KEY))
+				}, {
+					mapOf(layout.container.asdHandle to AgimoPropertyMap().apply {
+						val target = config.compute(layout, this@LayoutComputationUnit)
+						val dims = IntrinsicDimensionsProperty(target.width.toUInt(), target.height.toUInt())
+						putProperty(IntrinsicDimensionsProperty.KEY, dims)
+						putProperty(IntrinsicRatioProperty.KEY, dims.computeRatio())
+					})
+				}),
+				LayoutComputationUnit({
+					put(layout.container.asdHandle, setOf(BoundsProperty.KEY, RectangleProperty.KEY))
+				}, {
+					put(layout.component.asdHandle, setOf(BoundsProperty.KEY))
+				}, {
+					mapOf(layout.component.asdHandle to AgimoPropertyMap().apply {
+						val prop = getUnit(layout.container.asdHandle)
+						val rect = prop.getProperty(RectangleProperty.KEY)?.value
+							?: prop.getProperty(BoundsProperty.KEY)!!.value
+						putProperty(BoundsProperty.KEY, BoundsProperty(rect))
+					})
+				}),
+			)
 		}
 
 		sealed class Relative {

@@ -302,6 +302,14 @@ internal object Mui {
 	external fun setTextRenderingContextText(ctxHandle: ULong, text: String)
 
 	/**
+	 * @param ctxHandle TextRenderingContext handle pointer
+	 * @param fmHandle FontManager handle pointer
+	 * @return `[w, h]` text context size/dimensions
+	 */
+	@JvmName("fetchTextRenderingContextSize")
+	external fun fetchTextRenderingContextSize(ctxHandle: ULong, fmHandle: ULong): FloatArray
+
+	/**
 	 * @param canvasHandle Canvas handle pointer
 	 * @param glyphMgrHandle GlyphManager handle pointer
 	 * @param rendererHandle TextRenderer handle pointer

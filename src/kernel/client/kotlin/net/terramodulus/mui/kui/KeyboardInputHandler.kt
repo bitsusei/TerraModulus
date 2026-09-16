@@ -74,6 +74,20 @@ class KeyboardInputHandler internal constructor(keyboardDevice: KeyboardDevice) 
 		X(KeyId(23u)),
 		Y(KeyId(24u)),
 		Z(KeyId(25u)),
+		One(KeyId(26u)),
+		Two(KeyId(27u)),
+		Three(KeyId(28u)),
+		Four(KeyId(29u)),
+		Five(KeyId(30u)),
+		Six(KeyId(31u)),
+		Seven(KeyId(32u)),
+		Eight(KeyId(33u)),
+		Nine(KeyId(34u)),
+		Zero(KeyId(35u)),
+		Return(KeyId(36u)),
+		Escape(KeyId(37u)),
+		Backspace(KeyId(38u)),
+		Tab(KeyId(39u)),
 		Space(KeyId(40u)),
 		Minus(KeyId(41u)),
 		Equals(KeyId(42u)),
@@ -107,6 +121,20 @@ class KeyboardInputHandler internal constructor(keyboardDevice: KeyboardDevice) 
 		val X = Keys.X
 		val Y = Keys.Y
 		val Z = Keys.Z
+		val One = Keys.One
+		val Two = Keys.Two
+		val Three = Keys.Three
+		val Four = Keys.Four
+		val Five = Keys.Five
+		val Six = Keys.Six
+		val Seven = Keys.Seven
+		val Eight = Keys.Eight
+		val Nine = Keys.Nine
+		val Zero = Keys.Zero
+		val Return = Keys.Return
+		val Escape = Keys.Escape
+		val Backspace = Keys.Backspace
+		val Tab = Keys.Tab
 		val Space = Keys.Space
 		val Minus = Keys.Minus
 		val Equals = Keys.Equals

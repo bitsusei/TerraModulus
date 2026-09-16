@@ -15,13 +15,25 @@ import net.terramodulus.mui.gui.gfx.RectangleD
 import net.terramodulus.mui.gui.gfx.RenderSystem
 import net.terramodulus.mui.kui.MouseInputHandler
 
+// TODO should actually be non-Pane
 class CheckboxComponent(
 	asdHandle: AsdHandle,
 	inputStatesHandle: InputStatesHandle,
 	canvasHandle: RenderSystem.CanvasHandle,
+	init: Boolean,
 	callback: (Boolean) -> Unit,
 ) : AbstractPane(asdHandle) {
-	private var checked = false
+	constructor(
+		asdHandle: AsdHandle,
+		inputStatesHandle: InputStatesHandle,
+		canvasHandle: RenderSystem.CanvasHandle,
+		callback: (Boolean) -> Unit,
+	) : this(asdHandle, inputStatesHandle, canvasHandle, false, callback)
+
+	/**
+	 * Caveat: if this is externally modified, `callback` is never invoked.
+	 */
+	var checked = init
 	private val uncheckedFace = DrawablesComponent(sequenceOf(
 		DrawablesComponent.Drawable.Geom(GuiLine(canvasHandle, 0, 0, 0, 50, 255, 255, 255, 255)),
 		DrawablesComponent.Drawable.Geom(GuiLine(canvasHandle, 0, 0, 50, 0, 255, 255, 255, 255)),
@@ -36,7 +48,8 @@ class CheckboxComponent(
 		DrawablesComponent.Drawable.Geom(GuiLine(canvasHandle, 10, 20, 20, 10, 255, 255, 255, 255)),
 		DrawablesComponent.Drawable.Geom(GuiLine(canvasHandle, 20, 10, 45, 45, 255, 255, 255, 255)),
 	), RectangleD(0.0, 0.0, 50.0, 50.0), ComponentAsdHandleImpl())
-	override val layout = SingletonLayout(this, uncheckedFace, SingletonLayout.Config.Absolute.Full)
+	override val layout = SingletonLayout(this, if (checked) checkedFace else uncheckedFace,
+		SingletonLayout.Config.Absolute.Full)
 // 	override val layout = SingletonLayout(this, DrawablesComponent(object : Sequence<DrawablesComponent.Drawable> {
 // 		private val outline = sequenceOf(
 // 			DrawablesComponent.Drawable.Geom(GuiLine(canvasHandle, 0, 0, 0, 50, 255, 255, 255, 255)),

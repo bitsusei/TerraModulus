@@ -16,6 +16,7 @@ import com.cout970.math.vec3.normalized
 import com.cout970.math.vec3.plus
 import com.cout970.math.vec3.times
 import com.cout970.math.vec3.toImmVec3f
+import com.cout970.math.vec3.toMutVec3d
 import com.cout970.math.vec4.ImmVec4i
 import net.terramodulus.core.TerraModulus
 import net.terramodulus.core.getResourceAsString
@@ -30,14 +31,19 @@ import net.terramodulus.mui.gui.InputStatesHandle
 import net.terramodulus.mui.gui.MouseCtxStates
 import net.terramodulus.mui.gui.MouseState
 import net.terramodulus.mui.gui.agim.Component
+import net.terramodulus.mui.gui.agim.Layout
+import net.terramodulus.mui.gui.agim.Menu
 import net.terramodulus.mui.gui.agim.Screen
 import net.terramodulus.mui.gui.agim.ScreenManager
+import net.terramodulus.mui.gui.agim.event.MenuEvent
 import net.terramodulus.mui.gui.agim.event.ScreenEvent
 import net.terramodulus.mui.gui.asd.AsdHandle
 import net.terramodulus.mui.gui.gfx.Direction2S
 import net.terramodulus.mui.gui.gfx.Direction6C
 import net.terramodulus.mui.gui.gfx.GuiLine
+import net.terramodulus.mui.gui.gfx.GuiRect
 import net.terramodulus.mui.gui.gfx.InsetsD
+import net.terramodulus.mui.gui.gfx.RectangleD
 import net.terramodulus.mui.gui.gfx.RenderSystem
 import net.terramodulus.mui.gui.gfx.TextContext
 import net.terramodulus.mui.kui.KeyboardInputHandler
@@ -49,6 +55,7 @@ import kotlin.properties.Delegates
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlin.to
 
 private val WHITE = ImmVec4i(255, 255, 255, 255)
 private val RED = ImmVec4i(255, 0, 0, 255)
@@ -86,11 +93,14 @@ internal class GameplayScreen(
 
 	private lateinit var player: PlayerVoidGeom
 	override val layout = CompositeLayout(this)
-	private val mouseDebugTrackingLayer = MouseDebugTrackingLayer(renderSystemHandle.canvasHandle, inputStatesHandle)
+	private val mouseDebugTrackingLayer = MouseDebugTrackingLayer(renderSystemHandle, inputStatesHandle)
+
+	private var hotkeysEnabled = false
 
 	init {
 		renderSystemHandle.setBackgroundColor(0F, 0F, 0F, 0F)
 		managerHandle.open { p1: ScreenManager.Handle, p2: AsdHandle.Container, p3: RenderSystem.Handle ->
+			// In production, this screen should be placed separately.
 			WorldInitScreen(p1, p2, p3).apply {
 				core.world = World(Ymir(), progressBar)
 				addListener(ScreenEvent.Close::class.java) {
@@ -103,87 +113,172 @@ internal class GameplayScreen(
 						add(SingletonLayout(
 							this@GameplayScreen,
 							ButtonComponent(ComponentAsdHandleImpl(), inputStatesHandle, {
-								SingletonLayout(this, TextDisplayComponent(
-									ComponentAsdHandleImpl(),
-									renderSystemHandle,
-									TextContext.Config(24.0F, 24.0F, ImmVec4i(255)),
-								).apply {
-									text = "Button\nABC"
-								}, SingletonLayout.Config.Absolute.Full)
-							}) { println("Button reacted.") },
-							SingletonLayout.Config.Absolute.Insets(InsetsD(20.0, 0.0, 0.0, 300.0)),
-						))
-						add(SingletonLayout(
-							this@GameplayScreen,
-							SimplePane(ComponentAsdHandleImpl()) {
-								ColumnLayout.withComponents(listOf(
-									SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl()) {
-										val parent = this
-										CompositeLayout(this).apply {
-											val slider: SliderComponent
-											lateinit var listener: (Double) -> Unit
-											add(SingletonLayout(parent, SliderComponent(
-												renderSystemHandle.canvasHandle,
-												inputStatesHandle, ComponentAsdHandleImpl()
-											) {
-												config(withRanged(-1.0..5.0, 0.0) { listener(it) },
-													xPos, ImmVec4i(123, 234, 56, 255), ImmVec4i(50, 50, 250, 255))
-											}.apply { slider = this }, SingletonLayout.Config.Absolute.Full))
-											add(SingletonLayout(parent,
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(25F, 25F, ImmVec4i(255))
-												).apply {
-													text = "0.0"
-													listener = { text = "$it" }
-												},
-												SingletonLayout.Config.Absolute.Full,
-											))
-										}
-									}, SizedPane.Config(100u, 25u)),
-									SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl()) {
-										val parent = this
-										CompositeLayout(this).apply {
-											val slider: SliderComponent
-											lateinit var listener: (Int) -> Unit
-											add(SingletonLayout(parent, SliderComponent(
-												renderSystemHandle.canvasHandle,
-												inputStatesHandle, ComponentAsdHandleImpl()
-											) {
-												config(withPoints(6, 1) { listener(it) },
-													xPos, ImmVec4i(203, 234, 56, 255), ImmVec4i(50, 50, 250, 255))
-											}.apply { slider = this }, SingletonLayout.Config.Absolute.Full))
-											add(SingletonLayout(parent,
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(25F, 25F, ImmVec4i(255))
-												).apply {
-														text = "1"
-														listener = { text = "$it" }
-												},
-												SingletonLayout.Config.Absolute.Full,
-											))
-										}
-									}, SizedPane.Config(100u, 25u)),
-								), SequenceLayout.Config(Direction2S.Negative))(this)
-							},
-							SingletonLayout.Config.Absolute.Insets(InsetsD(20.0, 180.0, 0.0, 200.0)),
-						))
-						add(SingletonLayout(
-							this@GameplayScreen,
-							SimplePane(ComponentAsdHandleImpl()) {
-								SingletonLayout(this, SizedPane(
-									ComponentAsdHandleImpl(),
-									CheckboxComponent(
+								CompositeLayout(this) {
+									add(SingletonLayout(this@ButtonComponent, GeomComponent(
+										GuiRect(canvasHandle, 0, 0, 1, 1, 122, 122, 0, 255),
+										RectangleD(0.0, 0.0, 1.0, 1.0),
 										ComponentAsdHandleImpl(),
-										inputStatesHandle,
-										renderSystemHandle.canvasHandle,
-									) { mouseDebugTrackingLayer.enabled = it },
-									SizedPane.Config(100u, 100u),
-								), SingletonLayout.Config.Aligned(
-									SingletonLayout.Config.ObjectFit.Contain,
-									SingletonLayout.Config.AlignmentConfig.withX(0.0),
-								))
+									), SingletonLayout.Config.Absolute.Full))
+									add(SingletonLayout(this@ButtonComponent, TextDisplayComponent(
+										ComponentAsdHandleImpl(),
+										renderSystemHandle,
+										TextContext.Config(20F, 20F, ImmVec4i(255)),
+									).apply {
+										text = "Query..."
+									}, SingletonLayout.Config.Sole(SingletonLayout.Config.Scaled.Scale(1.0))))
+								}
+							}) {
+								managerHandle.addMenu { handle, asdHandle ->
+									object : Menu(handle, asdHandle) {
+										override val layout = with(this) menu@ {
+											fun command(label: String, action: () -> Unit) =
+												ButtonComponent(ComponentAsdHandleImpl().apply {
+													observeRect { println(rect) }
+												}, inputStatesHandle, {
+													SingletonLayout(this@ButtonComponent, TextDisplayComponent(
+														ComponentAsdHandleImpl(),
+														renderSystemHandle,
+														TextContext.Config(20F, 20F, ImmVec4i(255)),
+													).apply { text = label }, SingletonLayout.Config.Sole(
+														SingletonLayout.Config.Scaled.Scale(1.0)
+													))
+												}) {
+													action()
+													exit()
+												}
+											SingletonLayout(this, SimplePane(ComponentAsdHandleImpl()) {
+												CompositeLayout(this) {
+													add(SingletonLayout(this@SimplePane, GeomComponent(
+														GuiRect(canvasHandle, 0, 0, 1, 1, 122, 122, 128, 255),
+														RectangleD(0.0, 0.0, 1.0, 1.0),
+														ComponentAsdHandleImpl(),
+													), SingletonLayout.Config.Absolute.Full))
+													add(ColumnLayout.withComponents(listOf(
+														command("Position of Sphere", ::queryPos),
+														command("Velocity of Sphere", ::queryVec),
+														command("Gravity of World", ::queryGravity),
+														command("Friction of World", ::queryFriction),
+													), config = SequenceLayout.Config(
+														Direction2S.Negative,
+														intrinsic = true,
+													))(this@SimplePane))
+												}
+											}, SingletonLayout.Config.Auto(
+												SingletonLayout.Config.Auto.Side(Direction2S.Positive, 0.0),
+												SingletonLayout.Config.Auto.Side(Direction2S.Positive, 20.0),
+											))
+										}
+
+										init {
+											// just a quick hack but this certainly needs to be changed
+											asdHandle.properties.putProperty(BoundsProperty.KEY,
+												BoundsProperty(this@GameplayScreen.asdHandle.rect))
+											this@GameplayScreen.asdHandle.observeRect {
+												asdHandle.properties.putProperty(BoundsProperty.KEY,
+													BoundsProperty(this@GameplayScreen.asdHandle.rect))
+											}
+
+											addListener(MenuEvent.Update::class.java) {
+												if (it.muiIoI.inputSystem.condition { keyboard { Escape.justDown } })
+													exit()
+											}
+										}
+
+										fun exit() = handle.removeMenu(this)
+									}
+								}
 							},
-							SingletonLayout.Config.Absolute.Insets(InsetsD(20.0, 0.0, 0.0, 350.0)),
+							SingletonLayout.Config.Aligned(
+								SingletonLayout.Config.Scaled.Scale(1.0),
+								SingletonLayout.Config.AlignmentConfig(1.0, 1.0),
+							),
+						))
+						add(SingletonLayout(
+							this@GameplayScreen,
+							SimplePane(ComponentAsdHandleImpl()) {
+								CompositeLayout(this).apply {
+									add(SingletonLayout(this@SimplePane, GeomComponent(
+										GuiRect(canvasHandle, 0, 0, 1, 1, 10, 10, 255, 255),
+										RectangleD(0.0, 0.0, 1.0, 1.0),
+										ComponentAsdHandleImpl(),
+									), SingletonLayout.Config.Absolute.Full))
+									add(RowLayout.withElements(
+										SimplePane(ComponentAsdHandleImpl()) {
+											ColumnLayout.withComponents(listOf(
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Legacy Hotkeys" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Mouse Debug Tracking" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Gravity Influence" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Gravity (-y)" },
+											), SequenceLayout.Config(Direction2S.Negative, intrinsic = true))(this)
+										} to SequenceLayout.Element(1.0),
+										SimplePane(ComponentAsdHandleImpl()) {
+											ColumnLayout.withComponents(listOf(
+												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
+													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle
+												) { hotkeysEnabled = it }, SizedPane.Config(20u, 20u)),
+												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
+													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle,
+												) { mouseDebugTrackingLayer.enabled = it }, SizedPane.Config(20u, 20u)),
+												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
+													ComponentAsdHandleImpl(),
+													inputStatesHandle,
+													canvasHandle,
+													player.phyBody.gravityMode,
+												) { player.phyBody.gravityMode = it }.apply {
+													gravityModeListener = { checked = player.phyBody.gravityMode }
+												}, SizedPane.Config(20u, 20u)),
+												SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl())
+												parent@ {
+													CompositeLayout(this).apply {
+														lateinit var listener: (Double) -> Unit
+														add(SingletonLayout(this@parent, SliderComponent(
+															canvasHandle, inputStatesHandle, ComponentAsdHandleImpl()
+														) {
+															config(withRanged(
+																MIN_GRAVITY..MAX_GRAVITY,
+																-core.world!!.gravity.y,
+															) {
+																core.world!!.gravity = core.world!!.gravity
+																	.toMutVec3d().apply { y = -it }
+																listener(it)
+															}, xPos, ImmVec4i(123, 234, 56, 255),
+																ImmVec4i(50, 50, 250, 255),
+															)
+														}.apply {
+															gravityListener = {
+																val v = -core.world!!.gravity.y
+																fraction = (v - MIN_GRAVITY) / MAX_GRAVITY - MIN_GRAVITY
+																listener(v)
+															}
+														}, SingletonLayout.Config.Absolute.Full))
+														add(SingletonLayout(this@parent, TextDisplayComponent(
+															ComponentAsdHandleImpl(), renderSystemHandle,
+															TextContext.Config(25F, 25F, ImmVec4i(255))
+														).apply {
+															listener = { it: Double ->
+																text = String.format("%.2f", it)
+															}.apply { this(-core.world!!.gravity.y) }
+														}, SingletonLayout.Config.Absolute.Full))
+													}
+												}, SizedPane.Config(100u, 20u)),
+											), SequenceLayout.Config(Direction2S.Negative, intrinsic = true))(this)
+										} to SequenceLayout.Element(1.0),
+										config = SequenceLayout.Config(Direction2S.Positive, 2.0, 2.0, true),
+									)(this@SimplePane))
+								}
+							},
+							SingletonLayout.Config.Aligned(
+								SingletonLayout.Config.Scaled.Scale(1.0),
+								SingletonLayout.Config.AlignmentConfig(0.0, 1.0),
+							),
 						))
 						add(SingletonLayout(
 							this@GameplayScreen,
@@ -200,10 +295,11 @@ internal class GameplayScreen(
 	}
 
 	private inner class MouseDebugTrackingLayer(
-		private val handle: RenderSystem.CanvasHandle,
+		private val handle: RenderSystem.Handle,
 		inputStatesHandle: InputStatesHandle,
 	) : Component(ComponentAsdHandleImpl()) {
 		private var prevPos: Vec2d? = null
+		private var label: TextContext? = null
 		private val lines = ArrayDeque<Element>()
 		private val timeSource = TimeSource.Monotonic
 		private val mouseCtxStates = MouseCtxStates(inputStatesHandle.mouseGlobalStates, asdHandle)
@@ -216,6 +312,7 @@ internal class GameplayScreen(
 			asdHandle.observeRect {
 				lines.clear()
 				prevPos = null
+				label = null
 			}
 			mouseCtxStates.addListener(MouseState.Listener(
 				setOf(MouseState.Trigger(MouseState.Key.Movement) { true })
@@ -223,6 +320,7 @@ internal class GameplayScreen(
 				if (enabled) when (it) {
 					is MouseState.Movement -> {
 						if (prevPos != null) {
+							val handle = handle.canvasHandle
 							// Standard tracking aligned with SDL
 							lines.add(Element(
 								timeSource.markNow(),
@@ -237,6 +335,12 @@ internal class GameplayScreen(
 							))
 						}
 						prevPos = it.pos
+						(label ?: TextContext(handle, TextContext.Config(16F, 16F, ImmVec4i(255))).apply {
+							label = this
+						}).apply {
+							setText("(${it.pos.x}, ${it.pos.y})")
+							update(RectangleD(it.pos.x, it.pos.y, asdHandle.rect.width, asdHandle.rect.height))
+						}
 					}
 					else -> throw AssertionError()
 				}
@@ -253,6 +357,7 @@ internal class GameplayScreen(
 						else it.geom.render(renderSystem)
 					}
 				}
+				label?.render()
 			}
 		}
 	}
@@ -346,137 +451,166 @@ internal class GameplayScreen(
 
 	private fun Vec3d.display() = "[$x, $y, $z]"
 
+	/**
+	 * Query position of sphere
+	 */
+	private fun queryPos() {
+		logger.info { "Position: ${player.pos.display()}" }
+	}
+
+	/**
+	 * Query velocity of sphere
+	 *
+	 * Note: Acceleration is hard to be queried as force is zeroed after each world step
+	 */
+	private fun queryVec() {
+		logger.info { "Velocity: ${player.phyBody.linearVel.display()}" }
+	}
+
+	/**
+	 * Query gravity of world and gravity mode of (influence to) sphere
+	 */
+	private fun queryGravity() {
+		logger.info { "Gravity: ${core.world!!.gravity.display()}; influence: ${player.phyBody.gravityMode}" }
+	}
+
+	/**
+	 * Query friction states
+	 */
+	private fun queryFriction() {
+		logger.info { "Friction: ${core.world!!.friction}; mode: ${core.world!!.frictionMode}" }
+	}
+
+	private lateinit var gravityModeListener: () -> Unit
+	private lateinit var gravityListener: () -> Unit
+	private lateinit var frictionModeListener: () -> Unit
+	private lateinit var frictionListener: () -> Unit
+
 	private fun update0(muiIoI: ScreenManager.MuiIoI) {
 		val inputSystem = muiIoI.inputSystem
-		// Those keys are not related to GUI, so they are fine to be here.
-		if (inputSystem.condition { keyboard { Q.justDown } }) {
-			// Query position of sphere
-			logger.info { "Position: ${player.pos.display()}" }
-		}
-		if (inputSystem.condition { keyboard { R.justDown } }) {
-			// Query velocity of sphere
-			// Note: Acceleration is hard to be queried as force is zeroed after each world step
-			logger.info { "Velocity: ${player.phyBody.linearVel.display()}" }
-		}
-		if (inputSystem.condition { keyboard { U.justDown } }) {
-			// Query gravity of world and gravity mode of (influence to) sphere
-			logger.info { "Gravity: ${core.world!!.gravity.display()}; influence: ${player.phyBody.gravityMode}" }
-		}
-		if (inputSystem.condition { keyboard { I.justDown } }) {
-			// Toggle gravity mode of (influence to) sphere
-			player.phyBody.gravityMode = !player.phyBody.gravityMode
-			logger.info { "Gravity influence toggled: ${player.phyBody.gravityMode}" }
-		}
-		if (inputSystem.condition { keyboard { O.justDown } }) {
-			// Increase world gravity
-			if (-core.world!!.gravity.y < MAX_GRAVITY) {
-				core.world!!.gravity *= 2.0
-				logger.info {
-					"Gravity increased: ${core.world!!.gravity.display()}".let {
-						if (!player.phyBody.gravityMode) "$it (ineffective)" else it
+		if (hotkeysEnabled) { // Those keys are not related to GUI, so they are fine to be here.
+			if (inputSystem.condition { keyboard { Q.justDown } }) queryPos()
+			if (inputSystem.condition { keyboard { R.justDown } }) queryVec()
+			if (inputSystem.condition { keyboard { U.justDown } }) queryGravity()
+			if (inputSystem.condition { keyboard { I.justDown } }) {
+				// Toggle gravity mode of (influence to) sphere
+				player.phyBody.gravityMode = !player.phyBody.gravityMode
+				logger.info { "Gravity influence toggled: ${player.phyBody.gravityMode}" }
+				gravityModeListener()
+			}
+			if (inputSystem.condition { keyboard { O.justDown } }) {
+				// Increase world gravity
+				if (-core.world!!.gravity.y < MAX_GRAVITY) {
+					core.world!!.gravity *= 2.0
+					logger.info {
+						"Gravity increased: ${core.world!!.gravity.display()}".let {
+							if (!player.phyBody.gravityMode) "$it (ineffective)" else it
+						}
 					}
-				}
-			} else {
-				logger.info {
-					"Gravity maximized: ${core.world!!.gravity.display()}".let {
-						if (!player.phyBody.gravityMode) "$it (ineffective)" else it
+					gravityListener()
+				} else {
+					logger.info {
+						"Gravity maximized: ${core.world!!.gravity.display()}".let {
+							if (!player.phyBody.gravityMode) "$it (ineffective)" else it
+						}
 					}
 				}
 			}
-		}
-		if (inputSystem.condition { keyboard { P.justDown } }) {
-			// Decrease world gravity
-			if (-core.world!!.gravity.y > MIN_GRAVITY) {
-				core.world!!.gravity /= 2.0
-				logger.info {
-					"Gravity decreased: ${core.world!!.gravity.display()}".let {
-						if (!player.phyBody.gravityMode) "$it (ineffective)" else it
+			if (inputSystem.condition { keyboard { P.justDown } }) {
+				// Decrease world gravity
+				if (-core.world!!.gravity.y > MIN_GRAVITY) {
+					core.world!!.gravity /= 2.0
+					logger.info {
+						"Gravity decreased: ${core.world!!.gravity.display()}".let {
+							if (!player.phyBody.gravityMode) "$it (ineffective)" else it
+						}
 					}
-				}
-			} else {
-				logger.info {
-					"Gravity minimized: ${core.world!!.gravity.display()}".let {
-						if (!player.phyBody.gravityMode) "$it (ineffective)" else it
-					}
-				}
-			}
-		}
-		if (inputSystem.condition { keyboard { J.justDown } }) {
-			// Query friction states
-			logger.info { "Friction: ${core.world!!.friction}; mode: ${core.world!!.frictionMode}" }
-		}
-		if (inputSystem.condition { keyboard { K.justDown } }) {
-			// Toggle friction mode
-			core.world!!.frictionMode = World.FrictionMode.entries[
-				(core.world!!.frictionMode.ordinal + 1) % World.FrictionMode.entries.size
-			]
-			logger.info {
-				"Friction mode toggled: ${core.world!!.frictionMode}".let {
-					if (core.world!!.frictionMode == World.FrictionMode.Limited) "$it ; friction: ${core.world!!.friction}" else it
-				}
-			}
-		}
-		if (inputSystem.condition { keyboard { L.justDown } }) {
-			// Increase friction (for Limited mode)
-			if (core.world!!.friction < MAX_FRICTION) {
-				core.world!!.friction *= 2
-				logger.info {
-					"Friction increased: ${core.world!!.friction}".let {
-						if (core.world!!.frictionMode != World.FrictionMode.Limited) "$it (ineffective)" else it
-					}
-				}
-			} else {
-				logger.info {
-					"Friction maximized: ${core.world!!.friction}".let {
-						if (core.world!!.frictionMode != World.FrictionMode.Limited) "$it (ineffective)" else it
+					gravityListener()
+				} else {
+					logger.info {
+						"Gravity minimized: ${core.world!!.gravity.display()}".let {
+							if (!player.phyBody.gravityMode) "$it (ineffective)" else it
+						}
 					}
 				}
 			}
-		}
-		if (inputSystem.condition { keyboard { M.justDown } }) {
-			// Decrease friction (for Limited mode)
-			if (core.world!!.friction > MIN_FRICTION) {
-				core.world!!.friction /= 2
+			if (inputSystem.condition { keyboard { J.justDown } }) queryFriction()
+			if (inputSystem.condition { keyboard { K.justDown } }) {
+				// Toggle friction mode
+				core.world!!.frictionMode = World.FrictionMode.entries[
+					(core.world!!.frictionMode.ordinal + 1) % World.FrictionMode.entries.size
+				]
 				logger.info {
-					"Friction decreased: ${core.world!!.friction}".let {
-						if (core.world!!.frictionMode != World.FrictionMode.Limited) "$it (ineffective)" else it
+					"Friction mode toggled: ${core.world!!.frictionMode}".let {
+						if (core.world!!.frictionMode == World.FrictionMode.Limited) "$it ; friction: ${core.world!!.friction}" else it
 					}
 				}
-			} else {
-				logger.info {
-					"Friction minimized: ${core.world!!.friction}".let {
-						if (core.world!!.frictionMode != World.FrictionMode.Limited) "$it (ineffective)" else it
+				frictionModeListener()
+			}
+			if (inputSystem.condition { keyboard { L.justDown } }) {
+				// Increase friction (for Limited mode)
+				if (core.world!!.friction < MAX_FRICTION) {
+					core.world!!.friction *= 2
+					logger.info {
+						"Friction increased: ${core.world!!.friction}".let {
+							if (core.world!!.frictionMode != World.FrictionMode.Limited) "$it (ineffective)" else it
+						}
+					}
+					frictionListener()
+				} else {
+					logger.info {
+						"Friction maximized: ${core.world!!.friction}".let {
+							if (core.world!!.frictionMode != World.FrictionMode.Limited) "$it (ineffective)" else it
+						}
 					}
 				}
 			}
-		}
-		if (inputSystem.condition { keyboard { N.justDown } }) {
-			// Reset velocity of sphere to zero
-			player.phyBody.linearVel = ZeroImmVec3d
-			logger.info { "Reset velocity to zero" }
-		}
-		// This is problematic and difficult to be resolved.
-// 		if (inputSystem.condition { Z.justDown() }) {
-// 			// Reset position of sphere to spawn point
-// 			player.pos = Vec3D(0.0, 1.0, 0.0)
-// 			logger.info { "Reset position to spawn point" }
-// 		}
-		if (inputSystem.condition { keyboard { Equals.justDown } }) {
-			// Zoom in camera
-			if (camera.zoomLevel < MAX_ZOOM) {
-				camera.zoomLevel *= 2
-				logger.info { "Zoomed in: ${camera.zoomLevel}" }
-			} else {
-				logger.info { "Zoom maximized: ${camera.zoomLevel}" }
+			if (inputSystem.condition { keyboard { M.justDown } }) {
+				// Decrease friction (for Limited mode)
+				if (core.world!!.friction > MIN_FRICTION) {
+					core.world!!.friction /= 2
+					logger.info {
+						"Friction decreased: ${core.world!!.friction}".let {
+							if (core.world!!.frictionMode != World.FrictionMode.Limited) "$it (ineffective)" else it
+						}
+					}
+					frictionListener()
+				} else {
+					logger.info {
+						"Friction minimized: ${core.world!!.friction}".let {
+							if (core.world!!.frictionMode != World.FrictionMode.Limited) "$it (ineffective)" else it
+						}
+					}
+				}
 			}
-		}
-		if (inputSystem.condition { keyboard { Minus.justDown } }) {
-			// Zoom out camera
-			if (camera.zoomLevel > MIN_ZOOM) {
-				camera.zoomLevel /= 2
-				logger.info { "Zoomed out: ${camera.zoomLevel}" }
-			} else {
-				logger.info { "Zoom minimized: ${camera.zoomLevel}" }
+			if (inputSystem.condition { keyboard { N.justDown } }) {
+				// Reset velocity of sphere to zero
+				player.phyBody.linearVel = ZeroImmVec3d
+				logger.info { "Reset velocity to zero" }
+			}
+			// This is problematic and difficult to be resolved.
+	// 		if (inputSystem.condition { Z.justDown() }) {
+	// 			// Reset position of sphere to spawn point
+	// 			player.pos = Vec3D(0.0, 1.0, 0.0)
+	// 			logger.info { "Reset position to spawn point" }
+	// 		}
+			if (inputSystem.condition { keyboard { Equals.justDown } }) {
+				// Zoom in camera
+				if (camera.zoomLevel < MAX_ZOOM) {
+					camera.zoomLevel *= 2
+					logger.info { "Zoomed in: ${camera.zoomLevel}" }
+				} else {
+					logger.info { "Zoom maximized: ${camera.zoomLevel}" }
+				}
+			}
+			if (inputSystem.condition { keyboard { Minus.justDown } }) {
+				// Zoom out camera
+				if (camera.zoomLevel > MIN_ZOOM) {
+					camera.zoomLevel /= 2
+					logger.info { "Zoomed out: ${camera.zoomLevel}" }
+				} else {
+					logger.info { "Zoom minimized: ${camera.zoomLevel}" }
+				}
 			}
 		}
 

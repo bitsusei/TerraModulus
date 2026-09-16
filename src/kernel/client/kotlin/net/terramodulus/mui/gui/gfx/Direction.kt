@@ -19,6 +19,13 @@ enum class Direction2S {
 }
 
 /**
+ * Set of 2 absolute directions
+ */
+enum class Direction2A {
+	Start, End;
+}
+
+/**
  * Set of 2 diagonal directions
  */
 enum class Direction2D {

@@ -7,6 +7,7 @@ package net.terramodulus.engine
 
 import com.cout970.math.vec2.Vec2f
 import com.cout970.math.vec4.Vec4i
+import net.terramodulus.engine.ferricia.Mui.fetchTextRenderingContextSize
 import net.terramodulus.engine.ferricia.Mui.newTextRenderingContext
 import net.terramodulus.engine.ferricia.Mui.renderText
 import net.terramodulus.engine.ferricia.Mui.setTextRenderingContextColor
@@ -15,7 +16,7 @@ import net.terramodulus.engine.ferricia.Mui.setTextRenderingContextSize
 import net.terramodulus.engine.ferricia.Mui.setTextRenderingContextText
 
 class TextRenderingContext internal constructor(
-	managerHandle: ULong,
+	private val managerHandle: ULong,
 	fontSize: Float,
 	lineHeight: Float,
 	color: Vec4i,
@@ -28,6 +29,8 @@ class TextRenderingContext internal constructor(
 		setTextRenderingContextMetrics(handle, floatArrayOf(fontSize, lineHeight))
 
 	fun setSize(width: Float, height: Float) = setTextRenderingContextSize(handle, floatArrayOf(width, height))
+
+	fun fetchSize() = fetchTextRenderingContextSize(handle, managerHandle)
 
 	fun setText(text: String) = setTextRenderingContextText(handle, text)
 

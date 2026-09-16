@@ -34,13 +34,13 @@ class MenuManager internal constructor(private val asdHandle: (AsdProcessor<*>) 
 	}
 
 	sealed interface Handle {
-		fun addMenu(menu: (Handle, AsdHandle) -> Menu)
+		fun addMenu(menu: (Handle, AsdHandle.Menu) -> Menu)
 
 		fun removeMenu(menu: Menu)
 	}
 
 	private inner class HandleImpl : Handle {
-		override fun addMenu(menu: (Handle, AsdHandle) -> Menu) {
+		override fun addMenu(menu: (Handle, AsdHandle.Menu) -> Menu) {
 			menuQueue.add(MenuOperation.Add { menu(handle, MenuAsdHandleImpl()) })
 		}
 
@@ -57,6 +57,7 @@ class MenuManager internal constructor(private val asdHandle: (AsdProcessor<*>) 
 	internal fun update(muiIoI: ScreenManager.MuiIoI) {
 		menuQueue.forEach { it.apply(menus) }
 		menuQueue.clear()
+		menus.forEach { it.update(muiIoI) }
 	}
 
 	internal fun render(renderSystem: RenderSystem, screenManager: ScreenManager) {

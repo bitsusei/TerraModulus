@@ -200,7 +200,7 @@ class ScreenManager internal constructor(
 		 */
 		fun reset(screen: (Handle, AsdHandle.Screen, RenderSystem.Handle, InputStatesHandle) -> Screen)
 
-		fun addMenu(menu: (MenuManager.Handle, AsdHandle) -> Menu)
+		fun addMenu(menu: (MenuManager.Handle, AsdHandle.Menu) -> Menu)
 
 		fun removeMenu(menu: Menu)
 	}
@@ -243,7 +243,7 @@ class ScreenManager internal constructor(
 			screenOpQueue.add(ScreenOperation.Reset { screen(handle, ScreenAsdHandleImpl(), it, inputStatesHandle) })
 		}
 
-		override fun addMenu(menu: (MenuManager.Handle, AsdHandle) -> Menu) = menuManager.handle.addMenu(menu)
+		override fun addMenu(menu: (MenuManager.Handle, AsdHandle.Menu) -> Menu) = menuManager.handle.addMenu(menu)
 
 		override fun removeMenu(menu: Menu) = menuManager.handle.removeMenu(menu)
 	}
@@ -284,8 +284,8 @@ class ScreenManager internal constructor(
 	}
 
 	internal fun render(renderSystem: RenderSystem) {
-		menuManager.render(renderSystem, this)
 		screens.forEach { it.render(renderSystem, this) }
+		menuManager.render(renderSystem, this)
 	}
 
 	internal fun visitScreens() = AgimoTreeVisitor.ScreenTreeVisitor {

@@ -20,7 +20,7 @@ import kotlin.math.roundToInt
 /**
  * Interactive Slider
  *
- * Caveat: [fraction] must not be externally modified.
+ * Caveat: if [fraction] is externally modified, `reaction` is never invoked.
  */
 class SliderComponent private constructor(
 	canvasHandle: RenderSystem.CanvasHandle,

@@ -14,6 +14,8 @@ import net.terramodulus.mui.gui.asd.AsdHandle
 class CompositeLayout(container: Container) : Layout(container) {
 	private val layouts = ArrayDeque<Layout>()
 
+	constructor(container: Container, init: ArrayDeque<Layout>.() -> Unit) : this(container) { init(layouts) }
+
 	override val components = layouts.asSequence().flatMap { it.components }
 
 	fun update(operation: ArrayDeque<Layout>.() -> Unit) {

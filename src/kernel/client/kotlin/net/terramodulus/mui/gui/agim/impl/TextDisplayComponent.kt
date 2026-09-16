@@ -19,6 +19,7 @@ class TextDisplayComponent(
 	private val context = TextContext(renderSystemHandle, config)
 	var text: String by lateInitObservable { _, _, new ->
 		context.setText(new)
+		refreshDims()
 	}
 
 	init {
@@ -27,7 +28,16 @@ class TextDisplayComponent(
 		}
 	}
 
-	fun update(operation: TextContext.ConfigEnv.() -> Unit) = context.update(operation)
+	private fun refreshDims() {
+		val dim = IntrinsicDimensionsProperty(context.size.width.toUInt(), context.size.height.toUInt())
+		asdHandle.properties.putProperty(IntrinsicDimensionsProperty.KEY, dim)
+		asdHandle.properties.putProperty(IntrinsicRatioProperty.KEY, dim.computeRatio())
+	}
+
+	fun update(operation: TextContext.ConfigEnv.() -> Unit) {
+		context.update(operation)
+		refreshDims()
+	}
 
 	override fun render(renderSystem: RenderSystem) {
 		context.render()

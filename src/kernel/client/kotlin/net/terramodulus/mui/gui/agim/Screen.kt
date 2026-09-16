@@ -40,21 +40,21 @@ abstract class Screen(
 	}
 
 	sealed interface Handle {
-		fun addMenu(menu: (MenuManager.Handle, AsdHandle) -> Menu)
+		fun addMenu(menu: (MenuManager.Handle, AsdHandle.Menu) -> Menu)
 
 		fun removeMenu(menu: Menu)
 
-		fun addTopMenu(menu: (MenuManager.Handle, AsdHandle) -> Menu)
+		fun addTopMenu(menu: (MenuManager.Handle, AsdHandle.Menu) -> Menu)
 
 		fun removeTopMenu(menu: Menu)
 	}
 
 	private inner class HandleImpl(private val managerHandle: ScreenManager.Handle) : Handle {
-		override fun addMenu(menu: (MenuManager.Handle, AsdHandle) -> Menu) = menuManager.handle.addMenu(menu)
+		override fun addMenu(menu: (MenuManager.Handle, AsdHandle.Menu) -> Menu) = menuManager.handle.addMenu(menu)
 
 		override fun removeMenu(menu: Menu) = menuManager.handle.removeMenu(menu)
 
-		override fun addTopMenu(menu: (MenuManager.Handle, AsdHandle) -> Menu) = managerHandle.addMenu(menu)
+		override fun addTopMenu(menu: (MenuManager.Handle, AsdHandle.Menu) -> Menu) = managerHandle.addMenu(menu)
 
 		override fun removeTopMenu(menu: Menu) = managerHandle.removeMenu(menu)
 	}

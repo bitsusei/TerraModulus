@@ -13,8 +13,11 @@ import kotlin.properties.Delegates
 
 class TextContext(private val renderSystemHandle: RenderSystem.Handle, private var config: Config) {
 	private val context = renderSystemHandle.newTextRenderingContext(config.fontSize, config.lineHeight, config.color)
-	private lateinit var size: Dimension2D
+	private lateinit var containerSize: Dimension2D
 	private lateinit var pos: Vec2d
+
+	var size = Dimension2D(0.0, 0.0)
+		private set
 
 	data class Config(val fontSize: Float, val lineHeight: Float, val color: Vec4i)
 
@@ -41,20 +44,25 @@ class TextContext(private val renderSystemHandle: RenderSystem.Handle, private v
 		}.apply(operation).apply {
 			if (fontSizeChanged || lineHeightChanged) context.setMetrics(fontSize, lineHeight)
 			if (colorChanged) context.setColor(color)
+			if (fontSizeChanged || lineHeightChanged || colorChanged)
+				size = context.fetchSize().let { Dimension2D(it[0].toDouble(), it[1].toDouble()) }
 			config = Config(fontSize, lineHeight, color)
 		}
 	}
 
 	fun update(rect: RectangleD) {
-		val prevSize = try { size } catch (_: UninitializedPropertyAccessException) { null }
+		val prevSize = try { containerSize } catch (_: UninitializedPropertyAccessException) { null }
 		val prevPos = try { pos } catch (_: UninitializedPropertyAccessException) { null }
 		if (prevSize == null || prevSize.width != rect.width || prevSize.height != rect.height)
-			size = Dimension2D(rect.width, rect.height)
+			containerSize = Dimension2D(rect.width, rect.height)
 		if (prevPos == null || prevPos.x != rect.x || prevPos.y != rect.y)
 			pos = ImmVec2d(rect.x, rect.y)
 	}
 
-	fun setText(text: String) = context.setText(text)
+	fun setText(text: String) {
+		context.setText(text)
+		size = context.fetchSize().let { Dimension2D(it[0].toDouble(), it[1].toDouble()) }
+	}
 
 	fun render() = renderSystemHandle.renderText(context, pos.toImmVec2f())
 }

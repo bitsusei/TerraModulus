@@ -5,6 +5,7 @@
 
 package net.terramodulus.mui.gui.agim
 
+import com.cout970.math.vec2.ImmVec2d
 import com.cout970.math.vec2.Vec2d
 import com.cout970.math.vec2.minus
 import com.cout970.math.vec2.plus
@@ -21,6 +22,17 @@ const val ALIGN_END = 1.0
  * should be within the bounds of the rectangle/dimension.
  */
 class AnchorAlignmentHelper {
+	companion object {
+		private operator fun RectangleD.times(other: Vec2d) =
+			ImmVec2d(width * other.x, height * other.y)
+		private operator fun Dimension2D.times(other: Vec2d) =
+			ImmVec2d(width * other.x, height * other.y)
+
+		fun simple(subjectRect: RectangleD, targetDim: Dimension2D, alignment: Vec2d) =
+			Subject(subjectRect.toDouble(), subjectRect * alignment)
+				.alignTarget(Target(targetDim, targetDim * alignment))
+	}
+
 	data class Subject(val rect: RectangleD, val anchor: Vec2d) {
 		fun alignTarget(target: Target): RectangleD {
 			// This should be the anchor of the rectangle of target
