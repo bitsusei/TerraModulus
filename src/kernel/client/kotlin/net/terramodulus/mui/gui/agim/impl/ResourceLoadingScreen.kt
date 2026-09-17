@@ -105,7 +105,9 @@ class ResourceLoadingScreen(
 				}
 
 // 			3 -> screenManager.handle.openBefore(::TitleScreen, this)
-				3 -> it.muiIoI.screenManager.handle.reset(it.muiIoI.renderSystem.newGameplayScreen(ZeroImmVec3f))
+				3 -> it.muiIoI.screenManager.handle.reset { p0, p1, p2, p3 ->
+					WorldCreateScreen(it.muiIoI.renderSystem, p0, p1, p2, p3)
+				}
 			}
 		}
 	}

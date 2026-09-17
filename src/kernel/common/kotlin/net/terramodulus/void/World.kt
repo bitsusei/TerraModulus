@@ -23,7 +23,7 @@ import kotlin.time.TimeSource
 
 private val logger = logger {}
 
-class World(commander: Ymir, progressBar: ProgressBar) : Closeable {
+class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 	private val env = PhyEnv()
 	private val world = env.createWorld()
 	var timePerTick = Duration.ZERO
@@ -60,15 +60,22 @@ class World(commander: Ymir, progressBar: ProgressBar) : Closeable {
 		gravity = ImmVec3d(0.0, -9.81, 0.0)
 		floor.setBits(1u, 1u.inv())
 		world.omitSpace(mainSpace)
-		// Spawn point
-		objects[ObjId.randomUnique(objects)] = commander.wrapCube(createCube(.0, .0, .0), .0, .0, .0)
-		// Main Character
-		objects[ObjId.randomUnique(objects)] = commander.wrapChar(
-			world.newBody(PhyBody.Mass.SphereTotal(1.0, .5)).apply {
-				addGeom(createGeomSphere(.5))
-				pos = ImmVec3d(0.0, 1.0, 0.0)
+		val commander = commander.build(object : YmirAgent {
+			override fun genCube(commander: Ymir, pos: Vec3d) {
+				objects[ObjId.randomUnique(objects)] =
+					commander.wrapCube(createCube(pos.x, pos.y, pos.z), pos)
 			}
-		)
+
+			override fun genChar(commander: Ymir, pos: Vec3d) {
+				objects[ObjId.randomUnique(objects)] = commander.wrapChar(
+					world.newBody(PhyBody.Mass.SphereTotal(1.0, .5)).apply {
+						addGeom(createGeomSphere(.5))
+						this.pos = pos
+					},
+					pos,
+				)
+			}
+		})
 		Thread {
 			var ready = false // intermediate state to prevent cross-thread processing by listener invocation
 			while (!ready) {
@@ -77,8 +84,7 @@ class World(commander: Ymir, progressBar: ProgressBar) : Closeable {
 				}
 				Thread.sleep(1)
 			}
-			// Test Objects
-			randomCubes(commander, progressBar).forEach { objects[ObjId.randomUnique(objects)] = it }
+			commander.generateWorld(progressBar)
 			// Running in parallel
 			Thread {
 				val timeSource = TimeSource.Monotonic
@@ -102,10 +108,24 @@ class World(commander: Ymir, progressBar: ProgressBar) : Closeable {
 	}
 
 	interface Ymir {
-		fun wrapCube(phyGeom: PhyGeom, x: Double, y: Double, z: Double): VoidGeom
+		fun wrapCube(phyGeom: PhyGeom, pos: Vec3d): VoidGeom
 
-		/** Always at (0, 1, 0) */
-		fun wrapChar(phyBody: PhyBody): VoidGeom
+		fun wrapChar(phyBody: PhyBody, pos: Vec3d): VoidGeom
+
+		/**
+		 * Caveat: This is run in parallel, so code involving any graphic context should not be included here.
+		 */
+		fun generateWorld(progressBar: ProgressBar)
+
+		interface Builder {
+			fun build(agent: YmirAgent): Ymir
+		}
+	}
+
+	interface YmirAgent {
+		fun genCube(commander: Ymir, pos: Vec3d)
+
+		fun genChar(commander: Ymir, pos: Vec3d)
 	}
 
 	/** A wrapper containing rendering context, with a geom of dimensions of 1mx1mx1m */
@@ -125,62 +145,6 @@ class World(commander: Ymir, progressBar: ProgressBar) : Closeable {
 	interface PlayerVoidGeom : VoidGeom {
 		val phyBody: PhyBody
 		override val phyGeoms: Sequence<PhyGeom> get() = phyBody.geoms.asSequence()
-	}
-
-	// Source: https://en.wikipedia.org/wiki/Maze_generation_algorithm
-	private fun randomCubes(commander: Ymir, progressBar: ProgressBar): ArrayList<VoidGeom> {
-		val list = ArrayList<VoidGeom>()
-		var i = 0
-// 		val radius = 12
-		val radius = 5
-		val total = radius * radius * 2 * 2 * 7
-		val intervalHor = 5.0
-		val intervalVert = 8
-		val max = 5 * 5 * 5 // 125 for each set
-		val directions = arrayOf(
-			ImmVec3d(1.0, 0.0, 0.0),
-			ImmVec3d(-1.0, 0.0, 0.0),
-			ImmVec3d(0.0, 1.0, 0.0),
-			ImmVec3d(0.0, -1.0, 0.0),
-			ImmVec3d(0.0, 0.0, 1.0),
-			ImmVec3d(0.0, 0.0, -1.0),
-		)
-		for (x in 1..radius) {
-			for (y in -3..3) {
-				for (z in 1..radius) {
-					for (xs in booleanArrayOf(false, true)) {
-						for (zs in booleanArrayOf(false, true)) {
-	// 						logger.info { "Generating: ${++i}/$total" }
-							progressBar.setProgress(++i / total.toDouble())
-							val xx = (if (xs) x else -x).toDouble() * intervalHor
-							val zz = (if (zs) z else -z).toDouble() * intervalHor
-							val yy = (y * intervalVert).toDouble()
-							val origin = ImmVec3d(xx, yy + Random.nextInt(-3..3).toDouble(), zz)
-							val visited = mutableSetOf(ImmVec3d(0.0, 0.0, 0.0))
-							val heads = ArrayDeque<Vec3d>()
-							heads.addLast(ImmVec3d(0.0, 0.0, 0.0))
-							while (!heads.isEmpty()) {
-								val head = heads.removeFirst()
-								for (d in directions) {
-									val cur = head + d
-									if (Random.nextInt(max) > visited.size && cur !in visited) {
-										visited.add(cur)
-										if (Random.nextInt(max) > visited.size) {
-											heads.addLast(cur)
-										}
-									}
-								}
-							}
-							for (p in visited) {
-								val pt = origin + p
-								list.add(commander.wrapCube(createCube(pt.x, pt.y, pt.z), pt.x, pt.y, pt.z))
-							}
-						}
-					}
-				}
-			}
-		}
-		return list
 	}
 
 	private fun createCube(x: Double, y: Double, z: Double): PhyGeomBox {

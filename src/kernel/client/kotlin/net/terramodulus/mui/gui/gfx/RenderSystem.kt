@@ -20,6 +20,7 @@ import net.terramodulus.engine.TextRenderingContext
 import net.terramodulus.mui.gui.InputStatesHandle
 import net.terramodulus.mui.gui.agim.ScreenManager
 import net.terramodulus.mui.gui.agim.impl.GameplayScreen
+import net.terramodulus.mui.gui.agim.impl.WorldCreateScreen
 import net.terramodulus.mui.gui.asd.AsdHandle
 
 class RenderSystem internal constructor(private val core: TerraModulus, private val canvas: Canvas) {
@@ -90,9 +91,9 @@ class RenderSystem internal constructor(private val core: TerraModulus, private 
 			ScissorSession(pos, size).use { _ -> block() }
 	}
 
-	internal fun newGameplayScreen(pos: Vec3f) =
+	internal fun newGameplayScreen(options: WorldCreateScreen.WorldOptions, pos: Vec3f) =
 		{ mh: ScreenManager.Handle, ah: AsdHandle.Container, it: Handle, ish: InputStatesHandle ->
-			GameplayScreen(core, canvas.createCamera(floatArrayOf(pos.x, pos.y, pos.z)), it, mh, ah, ish)
+			GameplayScreen(options, core, canvas.createCamera(floatArrayOf(pos.x, pos.y, pos.z)), it, mh, ah, ish)
 		}
 
 	internal fun renderGuiTex(drawable: MeshDrawable, texture: UInt) = canvas.renderGuiTex(drawable, texShaders, texture)

@@ -31,7 +31,6 @@ import net.terramodulus.mui.gui.InputStatesHandle
 import net.terramodulus.mui.gui.MouseCtxStates
 import net.terramodulus.mui.gui.MouseState
 import net.terramodulus.mui.gui.agim.Component
-import net.terramodulus.mui.gui.agim.Layout
 import net.terramodulus.mui.gui.agim.Menu
 import net.terramodulus.mui.gui.agim.Screen
 import net.terramodulus.mui.gui.agim.ScreenManager
@@ -43,7 +42,6 @@ import net.terramodulus.mui.gui.gfx.Direction2S
 import net.terramodulus.mui.gui.gfx.Direction6C
 import net.terramodulus.mui.gui.gfx.GuiLine
 import net.terramodulus.mui.gui.gfx.GuiRect
-import net.terramodulus.mui.gui.gfx.InsetsD
 import net.terramodulus.mui.gui.gfx.RectangleD
 import net.terramodulus.mui.gui.gfx.RenderSystem
 import net.terramodulus.mui.gui.gfx.TextContext
@@ -54,6 +52,7 @@ import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.properties.Delegates
 import kotlin.random.Random
+import kotlin.random.nextInt
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlin.to
@@ -78,6 +77,7 @@ private const val MAX_ZOOM = 4
 private val logger = logger {}
 
 internal class GameplayScreen(
+	worldOptions: WorldCreateScreen.WorldOptions,
 	private val core: TerraModulus,
 	private val camera: Camera3D,
 	renderSystemHandle: RenderSystem.Handle,
@@ -103,7 +103,9 @@ internal class GameplayScreen(
 		managerHandle.open { p1: ScreenManager.Handle, p2: AsdHandle.Container, p3: RenderSystem.Handle ->
 			// In production, this screen should be placed separately.
 			WorldInitScreen(p1, p2, p3).apply {
-				core.world = World(Ymir(), progressBar)
+				core.world = World(object : World.Ymir.Builder {
+					override fun build(agent: World.YmirAgent) = Ymir(worldOptions, agent)
+				}, progressBar)
 				addListener(ScreenEvent.Close::class.java) {
 					this@GameplayScreen.layout.update {
 						add(SingletonLayout(
@@ -136,9 +138,7 @@ internal class GameplayScreen(
 											object : Menu(handle, asdHandle) {
 												override val layout = with(this) menu@ {
 													fun command(label: String, action: () -> Unit) =
-														ButtonComponent(ComponentAsdHandleImpl().apply {
-															observeRect { println(rect) }
-														}, inputStatesHandle, {
+														ButtonComponent(ComponentAsdHandleImpl(), inputStatesHandle, {
 															SingletonLayout(this@ButtonComponent, TextDisplayComponent(
 																ComponentAsdHandleImpl(),
 																renderSystemHandle,
@@ -309,17 +309,21 @@ internal class GameplayScreen(
 													ComponentAsdHandleImpl(),
 													inputStatesHandle,
 													{
+														lateinit var layout: SingletonLayout
 														SingletonLayout(this, TextDisplayComponent(
 															ComponentAsdHandleImpl(),
 															renderSystemHandle,
 															TextContext.Config(20F, 20F, ImmVec4i(255)),
 														).apply {
-															frictionModeListener = {
-																operate { text = core.world!!.frictionMode.toString() }
+															val listener = {
+																text = core.world!!.frictionMode.toString()
 															}.apply { this() }
+															frictionModeListener = {
+																layout.operate { listener() }
+															}
 														}, SingletonLayout.Config.Sole(
 															SingletonLayout.Config.Scaled.Scale(1.0)
-														))
+														)).apply { layout = this }
 													},
 												) {
 													core.world!!.frictionMode = World.FrictionMode.entries[
@@ -366,14 +370,15 @@ internal class GameplayScreen(
 												SimplePane(ComponentAsdHandleImpl()) {
 													lateinit var listener1: () -> Unit
 													lateinit var listener2: () -> Unit
-													lateinit var listenerTxt: (Float) -> Unit
+													lateinit var listenerTxt: () -> Unit
 													zoomLvlListener = {
 														listener1()
 														listener2()
-														listenerTxt(camera.zoomLevel)
+														listenerTxt()
 													}
 													val filter1 = AlphaFilter(1F)
 													val filter2 = AlphaFilter(1F)
+													lateinit var layout: RowLayout
 													RowLayout.withComponents(listOf(
 														ButtonComponent(
 															ComponentAsdHandleImpl(), inputStatesHandle,
@@ -413,8 +418,11 @@ internal class GameplayScreen(
 															renderSystemHandle,
 															TextContext.Config(20F, 20F, ImmVec4i(255)),
 														).apply {
-															listenerTxt = { it: Float -> text = "$it" }.apply {
-																this(camera.zoomLevel)
+															val listener = {
+																text = "${camera.zoomLevel}"
+															}.apply { this() }
+															listenerTxt = {
+																layout.operate { listener() }
 															}
 														},
 														ButtonComponent(
@@ -459,7 +467,7 @@ internal class GameplayScreen(
 															}
 														},
 													), SequenceLayout.Config(Direction2S.Positive, intrinsic = true)
-													)(this)
+													)(this).apply { layout = this }
 												},
 											), SequenceLayout.Config(Direction2S.Negative, intrinsic = true))(this)
 										} to SequenceLayout.Element(1.0),
@@ -554,14 +562,15 @@ internal class GameplayScreen(
 		}
 	}
 
-	private inner class Ymir : World.Ymir {
+	private inner class Ymir(
+		private val options: WorldCreateScreen.WorldOptions,
+		private val agent: World.YmirAgent,
+	) : World.Ymir {
 		private val cubeGeom = SimpleMesh3dGeomCube(canvasHandle.canvas, 2F)
 		private val sphereGeom = SimpleMesh3dGeomSphere(canvasHandle.canvas, 1F)
 
-		override fun wrapCube(phyGeom: PhyGeom, x: Double, y: Double, z: Double): VoidGeom = EnvVoidGeom(phyGeom,
-			WorldObjDrawable(cubeGeom, randomColor(), ImmVec3d(x, y, z), STD_SCALE, IDENT_ROT),
-			ImmVec3d(x, y, z),
-		)
+		override fun wrapCube(phyGeom: PhyGeom, pos: Vec3d) =
+			EnvVoidGeom(phyGeom, WorldObjDrawable(cubeGeom, randomColor(), pos, STD_SCALE, IDENT_ROT), pos)
 
 		private fun randomColor() = when (Random.nextInt(3)) {
 			0 -> RED
@@ -570,11 +579,98 @@ internal class GameplayScreen(
 			else -> throw AssertionError("Invalid color")
 		}
 
-		override fun wrapChar(phyBody: PhyBody): VoidGeom {
-			player = PlayerVoidGeom(phyBody,
-				WorldObjDrawable(sphereGeom, WHITE, ImmVec3d(0.0, 1.0, 0.0), STD_SCALE, IDENT_ROT)
+		override fun wrapChar(phyBody: PhyBody, pos: Vec3d) =
+			PlayerVoidGeom(phyBody, WorldObjDrawable(sphereGeom, WHITE, pos, STD_SCALE, IDENT_ROT)).apply {
+				player = this
+			}
+
+		override fun generateWorld(progressBar: World.ProgressBar) {
+			when (options.worldType) {
+				WorldCreateScreen.WorldOptions.WorldType.CubeSets -> {
+					// Spawn point
+					agent.genCube(this, ImmVec3d(.0))
+					// Main Character
+					agent.genChar(this, ImmVec3d(0.0, 1.0, 0.0))
+					// Test Objects
+					randomCubes(progressBar)
+				}
+				WorldCreateScreen.WorldOptions.WorldType.Flat -> {
+					// Main Character
+					agent.genChar(this, ImmVec3d(0.0, 1.0, 0.0))
+					// Floor
+					val radius = 100
+					for (x in -radius..radius) {
+						progressBar.setProgress(x / (radius * 2 + 1).toDouble() * .9)
+						for (z in -radius..radius) {
+							agent.genCube(this, ImmVec3d(x.toDouble(), .0, z.toDouble()))
+						}
+					}
+					// Random Walls
+					for (x in -radius..radius) {
+						progressBar.setProgress(x / 5.toDouble() * .1 + .9)
+						for (z in -radius..radius) {
+							if (x != 0 || z != 0)
+								if (Random.nextInt(10) < 1)
+									agent.genCube(this, ImmVec3d(x.toDouble(), 1.0, z.toDouble()))
+						}
+					}
+					progressBar.setProgress(1.0)
+				}
+			}
+			// TODO char type
+		}
+
+		// Reference: https://en.wikipedia.org/wiki/Maze_generation_algorithm
+		private fun randomCubes(progressBar: World.ProgressBar) {
+			var i = 0
+// 		    val radius = 12
+			val radius = 5
+			val total = radius * radius * 2 * 2 * 7
+			val intervalHor = 5.0
+			val intervalVert = 8
+			val max = 5 * 5 * 5 // 125 for each set
+			val directions = arrayOf(
+				ImmVec3d(1.0, 0.0, 0.0),
+				ImmVec3d(-1.0, 0.0, 0.0),
+				ImmVec3d(0.0, 1.0, 0.0),
+				ImmVec3d(0.0, -1.0, 0.0),
+				ImmVec3d(0.0, 0.0, 1.0),
+				ImmVec3d(0.0, 0.0, -1.0),
 			)
-			return player
+			for (x in 1..radius) {
+				for (y in -3..3) {
+					for (z in 1..radius) {
+						for (xs in booleanArrayOf(false, true)) {
+							for (zs in booleanArrayOf(false, true)) {
+								progressBar.setProgress(++i / total.toDouble())
+								val xx = (if (xs) x else -x).toDouble() * intervalHor
+								val zz = (if (zs) z else -z).toDouble() * intervalHor
+								val yy = (y * intervalVert).toDouble()
+								val origin = ImmVec3d(xx, yy + Random.nextInt(-3..3).toDouble(), zz)
+								val visited = mutableSetOf(ImmVec3d(0.0, 0.0, 0.0))
+								val heads = ArrayDeque<Vec3d>()
+								heads.addLast(ImmVec3d(0.0, 0.0, 0.0))
+								while (!heads.isEmpty()) {
+									val head = heads.removeFirst()
+									for (d in directions) {
+										val cur = head + d
+										if (Random.nextInt(max) > visited.size && cur !in visited) {
+											visited.add(cur)
+											if (Random.nextInt(max) > visited.size) {
+												heads.addLast(cur)
+											}
+										}
+									}
+								}
+								for (p in visited) {
+									val pt = origin + p
+									agent.genCube(this, pt)
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 

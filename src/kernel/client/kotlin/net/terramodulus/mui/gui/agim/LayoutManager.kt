@@ -277,7 +277,7 @@ internal class LayoutManager(screenManager: ScreenManager) {
 								// maybe later if needed, implement precedence or priority or explicit overriding
 								// for each Property result from different Units
 								depResultUnits.put(handle, key, unit)?.let {
-									throw IllegalStateException()
+									if (unit != it) throw IllegalStateException()
 								}
 								depResults.computeIfAbsent(handle) { mutableMapOf() }[key] = property
 							}
