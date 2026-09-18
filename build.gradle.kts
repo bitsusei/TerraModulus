@@ -5,21 +5,64 @@ plugins {
     kotlin("jvm") version "2.3.21"
     kotlin("plugin.serialization") version "2.1.20"
     id("org.jetbrains.kotlinx.atomicfu") version "0.27.0"
+    id("net.terramodulus.plugins.cargo") apply false
+//    id("fr.stardustenterprises.rust.wrapper") version "3.2.4" apply false
     application
+    kotlin("kapt") version "2.3.21"
 }
 
-allprojects {
-    apply(plugin = "org.jetbrains.kotlin.jvm")
+version = "0.0.1"
 
-    version = "0.0.1"
+repositories {
+    mavenCentral()
+}
 
-    repositories {
-        mavenCentral()
+project(":ferricia") {
+    // Candidates: fr.stardustenterprises.rust.wrapper
+    apply(plugin = "net.terramodulus.plugins.cargo")
+
+    if (providers.gradleProperty("release").isPresent) configure<CargoExtension> {
+        release = true // use `-Prelease=true`
+    }
+    configure<CargoExtension> {
+        outputFile = release.map {
+            projectDir.resolve("target/${if (it) "release" else "debug"}/${System.mapLibraryName("ferricia")}")
+        }
+    }
+    // somehow, .cargo extension is unusable
+    tasks.register<CargoTask>("buildClient") {
+        args = listOf("-F", "client")
+        println(outputFile.get())
+    }
+    tasks.register<CargoTask>("buildServer") {
+        args = listOf("-F", "server")
+    }
+    configurations {
+        create("client") {
+            isCanBeConsumed = true
+            isCanBeResolved = false
+        }
+        create("server") {
+            isCanBeConsumed = true
+            isCanBeResolved = false
+        }
+    }
+    artifacts {
+        add("client", tasks.named("buildClient"))
+        add("server", tasks.named("buildServer"))
     }
 }
 
 configure(listOf(project(":kernel"), project(":internal"))) {
     configure(listOf(project("common"), project("client"), project("server"))) {
+        apply(plugin = "org.jetbrains.kotlin.jvm")
+
+        version = rootProject.version
+
+        repositories {
+            mavenCentral()
+        }
+
         sourceSets.main {
             kotlin.srcDir("kotlin")
             resources.srcDir("resources")
@@ -61,7 +104,26 @@ project(":kernel") {
     }
 }
 
+project(":kernel:client") {
+    dependencies {
+        implementation(project(":ferricia", "client"))
+    }
+}
+project(":kernel:server") {
+    dependencies {
+        implementation(project(":ferricia", "server"))
+    }
+}
+
+configure(listOf(project(":internal:common"), project(":kernel:common"))) {
+    dependencies {
+        api("com.cout970:kotlin-vector-math:0.1.0")
+    }
+}
+
 project(":kernel:common") {
+    apply(plugin = "org.jetbrains.kotlin.kapt")
+
     dependencies {
         api("org.jetbrains:annotations:26.1.0")
         api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
@@ -77,7 +139,7 @@ project(":kernel:common") {
         implementation("org.apache.logging.log4j:log4j-api:2.24.3")
         implementation("org.apache.logging.log4j:log4j-slf4j2-impl:2.24.3")
         implementation(platform("org.apache.logging.log4j:log4j-bom:2.24.3"))
-        annotationProcessor("org.apache.logging.log4j:log4j-core:2.24.3")
+        kapt("org.apache.logging.log4j:log4j-core:2.24.3")
         runtimeOnly("com.lmax:disruptor:4.0.0")
         api("io.github.oshai:kotlin-logging-jvm:7.0.3")
         implementation("net.sf.jopt-simple:jopt-simple:5.0.4")
@@ -86,10 +148,12 @@ project(":kernel:common") {
 
 project(":kernel:client").dependencies {
     implementation("net.sf.jopt-simple:jopt-simple:5.0.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 }
 
 project(":kernel:server").dependencies {
     implementation("net.sf.jopt-simple:jopt-simple:5.0.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 }
 
 project(":internal:common").dependencies {
@@ -112,28 +176,6 @@ configure(listOf(project(":kernel:server"), project(":kernel:client"))) {
     }
 }
 
-/** Build Ferricia Engine with Cargo */
-tasks.register<Exec>("cargoBuildClient") {
-    onlyIf {
-        !gradle.taskGraph.hasTask(":kernel:server:jar")
-    }
-    workingDir = rootProject.file("ferricia")
-    commandLine("cargo", "build")
-    if (project.hasProperty("release")) args("--release") // use `-Prelease=true`
-    args("-F", "client")
-}
-tasks.register<Exec>("cargoBuildServer") {
-    onlyIf {
-        !gradle.taskGraph.hasTask(":kernel:client:jar")
-    }
-    workingDir = rootProject.file("ferricia")
-    commandLine("cargo", "build")
-    if (project.hasProperty("release")) args("--release") // use `-Prelease=true`
-    args("-F", "server")
-}
-project(":kernel:client").tasks.named("jar") { dependsOn(tasks.named("cargoBuildClient")) }
-project(":kernel:server").tasks.named("jar") { dependsOn(tasks.named("cargoBuildServer")) }
-
 tasks.register("buildClient") {
     group = "build"
     description = "Build client"
@@ -151,17 +193,13 @@ tasks.named("run") {
 tasks.register("runClient") {
     group = "application"
     description = "Run client"
-    dependsOn("cargoBuildClient")
     dependsOn(":kernel:client:run")
 }
-project(":kernel:client").tasks.named("run").get().mustRunAfter(tasks.named("cargoBuildClient"))
 tasks.register("runServer") {
     group = "application"
     description = "Run server"
-    dependsOn("cargoBuildServer")
     dependsOn(":kernel:server:run")
 }
-project(":kernel:server").tasks.named("run").get().mustRunAfter(tasks.named("cargoBuildServer"))
 
 configure(listOf(project(":kernel:server"), project(":kernel:client"))) {
     distributions {
@@ -170,15 +208,12 @@ configure(listOf(project(":kernel:server"), project(":kernel:client"))) {
                 duplicatesStrategy = DuplicatesStrategy.EXCLUDE
                 into("lib") {
                     val dir = if (project.hasProperty("release")) "release" else "debug"
+                    from("$rootDir/ferricia/target/$dir/${System.mapLibraryName("ferricia")}")
                     if (OperatingSystem.current().isWindows) from(
-                        "$rootDir/ferricia/target/$dir/ferricia.dll",
                         "$rootDir/ferricia/target/$dir/oded.dll",
                         "$rootDir/ferricia/target/$dir/OpenAL32.dll",
                         "$rootDir/ferricia/target/$dir/SDL3.dll",
-                    ) else { // suppose UNIX
-                        // other libs should be installed on user's end directly
-                        from("$rootDir/ferricia/target/$dir/libferricia.so")
-                    }
+                    ) // for UNIX, other libs should have been installed on user's end directly
                 }
             }
         }
@@ -197,9 +232,18 @@ configure(listOf(project(":kernel:server"), project(":kernel:client"))) {
     }
 
     tasks.named<JavaExec>("run") {
-        jvmArgs("-Djava.library.path=${rootProject.file("ferricia/target/${
-            if (project.hasProperty("release")) "release" else "debug"
-        }").path}")
+        jvmArgs(
+            "-Djava.library.path=${
+                rootProject.file(
+                    "ferricia/target/${
+                        if (project.hasProperty("release")) "release" else "debug"
+                    }"
+                ).path
+            }"
+        )
         args("--screen-size", "800x500")
     }
+}
+dependencies {
+    testImplementation(kotlin("test"))
 }

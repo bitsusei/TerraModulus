@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="CompilerConfiguration">
-    <annotationProcessing>
-      <profile name="Gradle Imported" enabled="true">
-        <outputRelativeToContentRoot value="true" />
-        <processorPath useClasspath="false">
-          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-core/2.24.3/7f6a261243ca767c7f38fd4b542bcde626c8894e/log4j-core-2.24.3.jar" />
-          <entry name="$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-api/2.24.3/b02c125db8b6d295adf72ae6e71af5d83bce2370/log4j-api-2.24.3.jar" />
-        </processorPath>
-        <module name="TerraModulus.kernel.common.main" />
-      </profile>
-    </annotationProcessing>
     <bytecodeTargetLevel target="17" />
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="TerraModulus" options="-proc:none" />
+      <module name="TerraModulus.kernel.common" options="-proc:none" />
+      <module name="TerraModulus.kernel.common.main" options="-proc:none" />
+      <module name="TerraModulus.kernel.common.test" options="-proc:none" />
+      <module name="TerraModulus.main" options="-proc:none" />
+      <module name="TerraModulus.test" options="-proc:none" />
+    </option>
   </component>
 </project>
