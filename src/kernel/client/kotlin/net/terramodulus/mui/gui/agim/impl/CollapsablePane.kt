@@ -6,6 +6,9 @@
 package net.terramodulus.mui.gui.agim.impl
 
 import com.cout970.math.vec2.ImmVec2d
+import net.terramodulus.mui.gui.InputStatesHandle
+import net.terramodulus.mui.gui.MouseCtxStates
+import net.terramodulus.mui.gui.MouseState
 import net.terramodulus.mui.gui.agim.AbstractPane
 import net.terramodulus.mui.gui.agim.AgimoPropertyMap
 import net.terramodulus.mui.gui.agim.AnchorAlignmentHelper
@@ -22,6 +25,7 @@ import net.terramodulus.mui.gui.gfx.GeneralTransform
 import net.terramodulus.mui.gui.gfx.GuiLine
 import net.terramodulus.mui.gui.gfx.RectangleD
 import net.terramodulus.mui.gui.gfx.RenderSystem
+import net.terramodulus.mui.kui.MouseInputHandler
 import kotlin.math.PI
 import kotlin.math.max
 import kotlin.properties.Delegates
@@ -34,13 +38,54 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 		private val INDICATOR_DIMS = Dimension2D(INDICATOR_SIZE, INDICATOR_SIZE)
 	}
 
+	private lateinit var mouseCtxStates: MouseCtxStates
+	fun withMouseInput(inputStatesHandle: InputStatesHandle) {
+		check(!::mouseCtxStates.isInitialized)
+		mouseCtxStates = MouseCtxStates(inputStatesHandle.mouseGlobalStates, asdHandle)
+		mouseCtxStates.addListener(MouseState.Listener(
+			setOf(MouseState.Trigger(MouseState.Key.ButtonJustDown(MouseInputHandler.Buttons.Left.id)) { true })
+		) {
+			assert(it is MouseState.ButtonJustDown && it.id == MouseInputHandler.Buttons.Left.id)
+			open = !open
+		})
+	}
+
+	/**
+	 * With advanced callback action during each change of [open] state, though with limited usage scenarios.
+	 */
+	fun withMouseInput(inputStatesHandle: InputStatesHandle, action: () -> Unit) {
+		check(!::mouseCtxStates.isInitialized)
+		mouseCtxStates = MouseCtxStates(inputStatesHandle.mouseGlobalStates, asdHandle)
+		mouseCtxStates.addListener(MouseState.Listener(
+			setOf(MouseState.Trigger(MouseState.Key.ButtonJustDown(MouseInputHandler.Buttons.Left.id)) { true })
+		) {
+			assert(it is MouseState.ButtonJustDown && it.id == MouseInputHandler.Buttons.Left.id)
+			open = !open
+			action()
+		})
+	}
+
+	@Suppress("unused")
 	object ConstructEnv {
 		class Config(
 			val headerPos: Direction4A,
-			val indicatorPos: Direction2S,
+			val indicatorPos: Direction2S?,
 			val header: Component,
 			val contents: Component,
 		)
+
+		val XPos get() = Direction4A.XPos
+		val XNeg get() = Direction4A.XNeg
+		val YPos get() = Direction4A.YPos
+		val YNeg get() = Direction4A.YNeg
+		val Pos get() = Direction2S.Positive
+		val Neg get() = Direction2S.Negative
+
+		fun config(headerPos: Direction4A, indicatorPos: Direction2S, header: Component, contents: Component) =
+			Config(headerPos, indicatorPos, header, contents)
+
+		fun config(headerPos: Direction4A, header: Component, contents: Component) =
+			Config(headerPos, null, header, contents)
 	}
 
 	private val _layout = CollapsableLayout(canvasHandle, config(ConstructEnv))
@@ -51,34 +96,51 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 	private inner class CollapsableLayout(canvasHandle: RenderSystem.CanvasHandle, config: ConstructEnv.Config) :
 		Layout(this@CollapsablePane) {
 		private val headerPos = config.headerPos
-		private val indicatorPos = config.indicatorPos
-		private val standardRot: GeneralTransform
-		private val transform = GeneralTransform()
-		// standard orientation: right/pos towards x
-		private val indicatorFace = DrawablesComponent(sequenceOf(
-			DrawablesComponent.Drawable.Geom(GuiLine(canvasHandle, 1, 1, 3, 2, 255, 255, 255, 255)),
-			DrawablesComponent.Drawable.Geom(GuiLine(canvasHandle, 1, 3, 3, 2, 255, 255, 255, 255)),
-		), RectangleD(0.0, 0.0, 4.0, 4.0), ComponentAsdHandleImpl())
+		private val indicator = if (config.indicatorPos != null) Indicator(canvasHandle, config.indicatorPos) else null
 		private var header = config.header
 		private var contents = config.contents
 
-		var open: Boolean by Delegates.observable(false) { _, _, newValue ->
-			operate {
+		private inner class Indicator(canvasHandle: RenderSystem.CanvasHandle, val pos: Direction2S) {
+			private val standardRot: GeneralTransform
+			private val transform = GeneralTransform()
+			// standard orientation: right/pos towards x
+			val face = DrawablesComponent(sequenceOf(
+				DrawablesComponent.Drawable.Geom(GuiLine(canvasHandle, 1, 1, 3, 2, 255, 255, 255, 255)),
+				DrawablesComponent.Drawable.Geom(GuiLine(canvasHandle, 1, 3, 3, 2, 255, 255, 255, 255)),
+			), RectangleD(0.0, 0.0, 4.0, 4.0), ComponentAsdHandleImpl())
+
+			init {
+				val angle = when (headerPos) {
+					Direction4A.XPos, Direction4A.XNeg -> when (pos) { // y
+						Direction2S.Positive -> -PI / 2 // -90 degrees to upwards
+						Direction2S.Negative -> PI / 2 // +90 degrees to downwards
+					}
+					Direction4A.YPos, Direction4A.YNeg -> when (pos) { // x
+						Direction2S.Positive -> 0.0 // 0 to rightwards
+						Direction2S.Negative -> PI // 180 degrees to leftwards
+					}
+				}
+				standardRot = GeneralTransform(1.0, 1.0, angle, 0.0, 0.0)
+				face.addTransform(standardRot)
+				face.addTransform(transform)
+			}
+
+			fun updateTransform(open: Boolean) {
 				transform.update {
-					angle = if (newValue) when (headerPos) {
-						Direction4A.XPos -> when (indicatorPos) {
+					angle = if (open) when (headerPos) {
+						Direction4A.XPos -> when (this@Indicator.pos) {
 							Direction2S.Positive -> ROT_RIGHT
 							Direction2S.Negative -> ROT_LEFT
 						}
-						Direction4A.XNeg -> when (indicatorPos) {
+						Direction4A.XNeg -> when (this@Indicator.pos) {
 							Direction2S.Positive -> ROT_LEFT
 							Direction2S.Negative -> ROT_RIGHT
 						}
-						Direction4A.YPos -> when (indicatorPos) {
+						Direction4A.YPos -> when (this@Indicator.pos) {
 							Direction2S.Positive -> ROT_LEFT
 							Direction2S.Negative -> ROT_RIGHT
 						}
-						Direction4A.YNeg -> when (indicatorPos) {
+						Direction4A.YNeg -> when (this@Indicator.pos) {
 							Direction2S.Positive -> ROT_RIGHT
 							Direction2S.Negative -> ROT_LEFT
 						}
@@ -87,23 +149,14 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 			}
 		}
 
-		init {
-			val angle = when (headerPos) {
-				Direction4A.XPos, Direction4A.XNeg -> when (indicatorPos) { // y
-					Direction2S.Positive -> -PI / 2 // -90 degrees to upwards
-					Direction2S.Negative -> PI / 2 // +90 degrees to downwards
-				}
-				Direction4A.YPos, Direction4A.YNeg -> when (indicatorPos) { // x
-					Direction2S.Positive -> 0.0 // 0 to rightwards
-					Direction2S.Negative -> PI // 180 degrees to leftwards
-				}
+		var open: Boolean by Delegates.observable(false) { _, _, newValue ->
+			operate {
+				indicator?.updateTransform(newValue)
 			}
-			standardRot = GeneralTransform(1.0, 1.0, angle, 0.0, 0.0)
-			indicatorFace.addTransform(standardRot)
-			indicatorFace.addTransform(transform)
 		}
 
-		override val components = componentsSequence(::indicatorFace, ::header, ::contents)
+		override val components = // TODO find a way to omit contents when !open
+			componentsNullableSequence({ indicator?.face }, ::header, ::contents)
 
 		fun updateHeader(header: Component) = operate { this@CollapsableLayout.header = header }
 
@@ -124,12 +177,14 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 						Direction4A.XPos, Direction4A.XNeg -> {
 							val height = max(headerDims.height + INDICATOR_SIZE, contentsDims.height)
 							val headerWidth = max(INDICATOR_SIZE, headerDims.width)
-							Dimension2D(headerWidth + contentsDims.width, height)
+							if (open) Dimension2D(headerWidth + contentsDims.width, height)
+							else Dimension2D(headerWidth, height)
 						}
 						Direction4A.YPos, Direction4A.YNeg -> {
 							val width = max(headerDims.width + INDICATOR_SIZE, contentsDims.width)
 							val headerHeight = max(INDICATOR_SIZE, headerDims.height)
-							Dimension2D(width, headerHeight + contentsDims.height)
+							if (open) Dimension2D(width, headerHeight + contentsDims.height)
+							else Dimension2D(width, headerHeight)
 						}
 					}))
 				})
@@ -142,9 +197,9 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 					DimensionsProperty.KEY,
 				))
 			}, {
-				put(indicatorFace.asdHandle, setOf(BoundsProperty.KEY))
+				if (indicator != null) put(indicator.face.asdHandle, setOf(BoundsProperty.KEY))
 				put(header.asdHandle, setOf(BoundsProperty.KEY))
-				put(contents.asdHandle, setOf(BoundsProperty.KEY))
+				if (open) put(contents.asdHandle, setOf(BoundsProperty.KEY))
 			}, {
 				val headerDims = DimensionsProperty.getOrComputeValue(getUnit(header.asdHandle))
 				val contentsDims = DimensionsProperty.getOrComputeValue(getUnit(contents.asdHandle))
@@ -154,9 +209,9 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 				assert(prop.getProperty(DimensionsProperty.KEY)!!.value.let {
 					containerRect.width == it.width && containerRect.height == it.height
 				})
-				val indicatorRect: RectangleD
+				lateinit var indicatorRect: RectangleD
 				val headerRect: RectangleD
-				val contentsRect: RectangleD
+				lateinit var contentsRect: RectangleD
 				when (headerPos) {
 					Direction4A.XPos, Direction4A.XNeg -> {
 						val headerWidth = max(INDICATOR_SIZE, headerDims.width)
@@ -169,7 +224,7 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 									headerWidth,
 									containerRect.height,
 								)
-								contentsRect = AnchorAlignmentHelper.simple(RectangleD(
+								if (open) contentsRect = AnchorAlignmentHelper.simple(RectangleD(
 									containerRect.x,
 									containerRect.y,
 									contentsDims.width,
@@ -183,7 +238,7 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 									headerWidth,
 									containerRect.height,
 								)
-								contentsRect = AnchorAlignmentHelper.simple(RectangleD(
+								if (open) contentsRect = AnchorAlignmentHelper.simple(RectangleD(
 									containerRect.x + headerWidth,
 									containerRect.y,
 									contentsDims.width,
@@ -191,7 +246,7 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 								), contentsDims, ImmVec2d(0.5))
 							}
 						}
-						when (indicatorPos) {
+						if (indicator != null) when (indicator.pos) {
 							Direction2S.Positive -> {
 								indicatorRect =
 									AnchorAlignmentHelper.simple(headerSpace, INDICATOR_DIMS, ImmVec2d(0.5, 1.0))
@@ -202,7 +257,7 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 									AnchorAlignmentHelper.simple(headerSpace, INDICATOR_DIMS, ImmVec2d(0.5, 0.0))
 								headerRect = AnchorAlignmentHelper.simple(headerSpace, headerDims, ImmVec2d(0.5, 1.0))
 							}
-						}
+						} else headerRect = AnchorAlignmentHelper.simple(headerSpace, headerDims, ImmVec2d(0.5, 0.5))
 					}
 					Direction4A.YPos, Direction4A.YNeg -> {
 						val headerHeight = max(INDICATOR_SIZE, headerDims.height)
@@ -215,7 +270,7 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 									containerRect.width,
 									headerHeight,
 								)
-								contentsRect = AnchorAlignmentHelper.simple(RectangleD(
+								if (open) contentsRect = AnchorAlignmentHelper.simple(RectangleD(
 									containerRect.x,
 									containerRect.y,
 									containerRect.width,
@@ -229,7 +284,7 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 									containerRect.width,
 									headerHeight,
 								)
-								contentsRect = AnchorAlignmentHelper.simple(RectangleD(
+								if (open) contentsRect = AnchorAlignmentHelper.simple(RectangleD(
 									containerRect.x,
 									containerRect.y + headerHeight,
 									containerRect.width,
@@ -237,7 +292,7 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 								), contentsDims, ImmVec2d(0.5))
 							}
 						}
-						when (indicatorPos) {
+						if (indicator != null) when (indicator.pos) {
 							Direction2S.Positive -> {
 								indicatorRect =
 									AnchorAlignmentHelper.simple(headerSpace, INDICATOR_DIMS, ImmVec2d(1.0, 0.5))
@@ -248,14 +303,19 @@ class CollapsablePane(canvasHandle: RenderSystem.CanvasHandle, asdHandle: AsdHan
 									AnchorAlignmentHelper.simple(headerSpace, INDICATOR_DIMS, ImmVec2d(0.0, 0.5))
 								headerRect = AnchorAlignmentHelper.simple(headerSpace, headerDims, ImmVec2d(1.0, 0.5))
 							}
-						}
+						} else headerRect = AnchorAlignmentHelper.simple(headerSpace, headerDims, ImmVec2d(0.5, 0.5))
 					}
 				}
-				mapOf(
-					indicatorFace.asdHandle to AgimoPropertyMap().apply { putProperty(BoundsProperty(indicatorRect)) },
+				mutableMapOf(
 					header.asdHandle to AgimoPropertyMap().apply { putProperty(BoundsProperty(headerRect)) },
-					contents.asdHandle to AgimoPropertyMap().apply { putProperty(BoundsProperty(contentsRect)) },
-				)
+				).apply {
+					if (indicator != null) put(indicator.face.asdHandle, AgimoPropertyMap().apply {
+						putProperty(BoundsProperty(indicatorRect))
+					})
+					if (open) put(contents.asdHandle, AgimoPropertyMap().apply {
+						putProperty(BoundsProperty(contentsRect))
+					})
+				}
 			}))
 		}))
 	}

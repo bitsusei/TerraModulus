@@ -30,18 +30,22 @@ import net.terramodulus.engine.common.ZeroImmVec3d
 import net.terramodulus.mui.gui.InputStatesHandle
 import net.terramodulus.mui.gui.MouseCtxStates
 import net.terramodulus.mui.gui.MouseState
+import net.terramodulus.mui.gui.agim.AbstractPane
 import net.terramodulus.mui.gui.agim.Component
 import net.terramodulus.mui.gui.agim.Menu
 import net.terramodulus.mui.gui.agim.Screen
 import net.terramodulus.mui.gui.agim.ScreenManager
+import net.terramodulus.mui.gui.agim.event.ComponentEvent
 import net.terramodulus.mui.gui.agim.event.MenuEvent
 import net.terramodulus.mui.gui.agim.event.ScreenEvent
 import net.terramodulus.mui.gui.asd.AsdHandle
 import net.terramodulus.mui.gui.gfx.AlphaFilter
 import net.terramodulus.mui.gui.gfx.Direction2S
 import net.terramodulus.mui.gui.gfx.Direction6C
+import net.terramodulus.mui.gui.gfx.GeneralTransform
 import net.terramodulus.mui.gui.gfx.GuiLine
 import net.terramodulus.mui.gui.gfx.GuiRect
+import net.terramodulus.mui.gui.gfx.RectStParams
 import net.terramodulus.mui.gui.gfx.RectangleD
 import net.terramodulus.mui.gui.gfx.RenderSystem
 import net.terramodulus.mui.gui.gfx.TextContext
@@ -53,9 +57,9 @@ import kotlin.math.roundToInt
 import kotlin.properties.Delegates
 import kotlin.random.Random
 import kotlin.random.nextInt
+import kotlin.reflect.KProperty0
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
-import kotlin.to
 
 private val WHITE = ImmVec4i(255, 255, 255, 255)
 private val RED = ImmVec4i(255, 0, 0, 255)
@@ -66,6 +70,10 @@ private val IDENT_ROT = ImmQuatd(1.0, .0, .0, .0)
 private const val MASS = 1.0
 private const val MAX_SPEED = PI * PI // reachable by autonomous movement
 private const val MAX_ACC = PI * PI // without other forces, reaching MAX_SPEED in one second
+private const val MIN_SPEED_FACTOR = 1.0 / 16.0
+private const val MAX_SPEED_FACTOR = 64.0
+private const val MIN_ACC_FACTOR = 1.0 / 16.0
+private const val MAX_ACC_FACTOR = 64.0
 private const val MOVE_EPSILON = .1 // smallest acc to apply
 private const val MIN_GRAVITY = 1.0
 private const val MAX_GRAVITY = 20.0
@@ -95,8 +103,11 @@ internal class GameplayScreen(
 	private lateinit var player: PlayerVoidGeom
 	override val layout = CompositeLayout(this)
 	private val mouseDebugTrackingLayer = MouseDebugTrackingLayer(renderSystemHandle, inputStatesHandle)
+	private val attributeTrackingPane = AttributeTrackingPane(renderSystemHandle)
 
 	private var hotkeysEnabled = false
+	private var speedFactor = 1.0
+	private var accFactor = 1.0
 
 	init {
 		renderSystemHandle.setBackgroundColor(0F, 0F, 0F, 0F)
@@ -228,6 +239,8 @@ internal class GameplayScreen(
 										RectangleD(0.0, 0.0, 1.0, 1.0),
 										ComponentAsdHandleImpl(),
 									), SingletonLayout.Config.Absolute.Full))
+// 									lateinit var trackingCtrlPane1: CollapsablePane
+// 									lateinit var trackingCtrlPane2: CollapsablePane
 									add(RowLayout.withElements(
 										SimplePane(ComponentAsdHandleImpl()) {
 											ColumnLayout.withComponents(listOf(
@@ -249,6 +262,51 @@ internal class GameplayScreen(
 												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
 													TextContext.Config(20F, 20F, ImmVec4i(255)),
 												).apply { text = "Friction (Limited mode)" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Speed Factor" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Acceleration Factor" },
+// 												CollapsablePane(canvasHandle, ComponentAsdHandleImpl()) {
+// 													config(YPos, Neg, TextDisplayComponent(
+// 														ComponentAsdHandleImpl(),
+// 														renderSystemHandle,
+// 														TextContext.Config(20F, 20F, ImmVec4i(255)),
+// 													).apply { text = "Tracking..." },
+// 														SimplePane(ComponentAsdHandleImpl()) {
+// 															ColumnLayout.withComponents(listOf(
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(),
+																	renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "TPS & TPT" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(),
+																	renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Position" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(),
+																	renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Velocity" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(),
+																	renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Force/Acceleration" },
+// 															), SequenceLayout.Config(
+// 																Direction2S.Neg,
+// 																intrinsic = true,
+// 															))(this)
+// 														})
+// 												}.apply {
+// 													trackingCtrlPane1 = this
+// 													withMouseInput(inputStatesHandle) {
+// 														trackingCtrlPane2.open = !trackingCtrlPane2.open
+// 													}
+// 												},
 												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
 													TextContext.Config(20F, 20F, ImmVec4i(255)),
 												).apply { text = "Zoom Level" },
@@ -367,6 +425,96 @@ internal class GameplayScreen(
 														}, SingletonLayout.Config.Absolute.Full))
 													}
 												}, SizedPane.Config(100u, 20u)),
+												SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl())
+												parent@ {
+													CompositeLayout(this).apply {
+														lateinit var listener: () -> Unit
+														add(SingletonLayout(this@parent, SliderComponent(
+															canvasHandle, inputStatesHandle, ComponentAsdHandleImpl()
+														) {
+															config(withRanged(
+																MIN_SPEED_FACTOR..MAX_SPEED_FACTOR,
+																speedFactor,
+																transformLinearExponential(2.0),
+															) {
+																speedFactor = it
+																listener()
+															}, xPos, ImmVec4i(123, 234, 56, 255),
+																ImmVec4i(50, 50, 250, 255),
+															)
+														}, SingletonLayout.Config.Absolute.Full))
+														add(SingletonLayout(this@parent, TextDisplayComponent(
+															ComponentAsdHandleImpl(), renderSystemHandle,
+															TextContext.Config(20F, 20F, ImmVec4i(255))
+														).apply {
+															listener = {
+																text = String.format("%.4g", speedFactor)
+															}.apply { this() }
+														}, SingletonLayout.Config.Absolute.Full))
+													}
+												}, SizedPane.Config(100u, 20u)),
+												SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl())
+												parent@ {
+													CompositeLayout(this).apply {
+														lateinit var listener: () -> Unit
+														add(SingletonLayout(this@parent, SliderComponent(
+															canvasHandle, inputStatesHandle, ComponentAsdHandleImpl()
+														) {
+															config(withRanged(
+																MIN_ACC_FACTOR..MAX_ACC_FACTOR,
+																accFactor,
+																transformLinearExponential(2.0),
+															) {
+																accFactor = it
+																listener()
+															}, xPos, ImmVec4i(123, 234, 56, 255),
+																ImmVec4i(50, 50, 250, 255),
+															)
+														}, SingletonLayout.Config.Absolute.Full))
+														add(SingletonLayout(this@parent, TextDisplayComponent(
+															ComponentAsdHandleImpl(), renderSystemHandle,
+															TextContext.Config(20F, 20F, ImmVec4i(255))
+														).apply {
+															listener = {
+																text = String.format("%.4g", accFactor)
+															}.apply { this() }
+														}, SingletonLayout.Config.Absolute.Full))
+													}
+												}, SizedPane.Config(100u, 20u)),
+// 												CollapsablePane(canvasHandle, ComponentAsdHandleImpl()) {
+// 													config(YPos, SizedPane(
+// 														ComponentAsdHandleImpl(),
+// 														BlankComponent(ComponentAsdHandleImpl()),
+// 														SizedPane.Config(20u, 20u),
+// 													), SimplePane(ComponentAsdHandleImpl()) {
+// 														ColumnLayout.withComponents(listOf(
+															SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(ComponentAsdHandleImpl(),
+																inputStatesHandle, canvasHandle, false) {
+																attributeTrackingPane.toggleRowTpsTpt()
+															}, SizedPane.Config(20u, 20u)),
+															SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(ComponentAsdHandleImpl(),
+																inputStatesHandle, canvasHandle, false) {
+																attributeTrackingPane.toggleRowPos()
+															}, SizedPane.Config(20u, 20u)),
+															SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(ComponentAsdHandleImpl(),
+																inputStatesHandle, canvasHandle, false) {
+																attributeTrackingPane.toggleRowVel()
+															}, SizedPane.Config(20u, 20u)),
+															SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(ComponentAsdHandleImpl(),
+																inputStatesHandle, canvasHandle, false) {
+																attributeTrackingPane.toggleRowForceAcc()
+															}, SizedPane.Config(20u, 20u)),
+// 														), SequenceLayout.Config(
+// 															Direction2S.Neg,
+// 															intrinsic = true,
+// 														))(this)
+// 													})
+// 												}.apply {
+// 													trackingCtrlPane2 = this
+// 													withMouseInput(inputStatesHandle) {
+// 														trackingCtrlPane1.open = !trackingCtrlPane1.open
+// 													}
+// 												},
 												SimplePane(ComponentAsdHandleImpl()) {
 													lateinit var listener1: () -> Unit
 													lateinit var listener2: () -> Unit
@@ -482,6 +630,14 @@ internal class GameplayScreen(
 						))
 						add(SingletonLayout(
 							this@GameplayScreen,
+							attributeTrackingPane,
+							SingletonLayout.Config.Auto(
+								SingletonLayout.Config.Auto.Side(Direction2S.Pos, 0.0),
+								SingletonLayout.Config.Auto.Side(Direction2S.Neg, 50.0),
+							),
+						))
+						add(SingletonLayout(
+							this@GameplayScreen,
 							mouseDebugTrackingLayer,
 							SingletonLayout.Config.Absolute.Full,
 						))
@@ -558,6 +714,117 @@ internal class GameplayScreen(
 					}
 				}
 				label?.render()
+			}
+		}
+	}
+
+	private inner class AttributeTrackingPane(private val renderSystemHandle: RenderSystem.Handle) :
+		AbstractPane(ComponentAsdHandleImpl()) {
+		// first row as most bottom
+		private var rowTpsTpt: TextDisplayComponent? = null
+		private var rowPos: TextDisplayComponent? = null
+		private var rowVel: TextDisplayComponent? = null
+		private var rowForceAcc: TextDisplayComponent? = null
+
+		override val layout = ColumnLayout.withElements(
+			config = SequenceLayout.Config(Direction2S.Pos, intrinsic = true),
+		)(this)
+
+		private val backgroundBounds = RectangleD(0.0, 0.0, 1.0, 1.0)
+		private val background = GuiRect(renderSystemHandle.canvasHandle, 0, 0, 1, 1, 0, 0, 0, 50)
+		private val backgroundTransform = GeneralTransform().apply { background.add(this) }
+
+		init {
+			asdHandle.observeRect {
+				RectStParams.fromRects(backgroundBounds, asdHandle.rect).applyToGeneralTransform(backgroundTransform)
+			}
+			addListener(ComponentEvent.Update::class.java) { refresh() }
+		}
+
+		private val components = sequenceOf(::rowTpsTpt, ::rowPos, ::rowVel, ::rowForceAcc)
+
+		private fun placeComponent(property: KProperty0<TextDisplayComponent?>, component: TextDisplayComponent) {
+			val list = components.toList()
+			val e = list.subList(0, list.indexOf(property)).mapNotNull { it() }.lastOrNull()
+			if (e == null) layout.components.firstOrNull().let { // because there is no addFirst
+				if (it == null) layout.add(component) else layout.addBefore(it, component)
+			} else layout.addAfter(e, component)
+			layout.replace(component, component, SequenceLayout.Element(1.0))
+		}
+
+		private fun newRowComponent() = TextDisplayComponent(
+			ComponentAsdHandleImpl(),
+			renderSystemHandle,
+			TextContext.Config(20F, 20F, ImmVec4i(255)),
+		)
+
+		fun toggleRowTpsTpt() {
+			rowTpsTpt.let {
+				if (it == null) {
+					placeComponent(::rowTpsTpt, newRowComponent().apply { rowTpsTpt = this })
+					refreshTpsTpt()
+				} else layout.remove(it)
+			}
+		}
+
+		private fun refreshTpsTpt() {
+			rowTpsTpt?.text = "TPS: ${core.world!!.tps} | ${core.world!!.timePerTick.inWholeMilliseconds} ms/t"
+		}
+
+		fun toggleRowPos() {
+			rowPos.let {
+				if (it == null) {
+					placeComponent(::rowPos, newRowComponent().apply { rowPos = this })
+					refreshPos()
+				} else layout.remove(it)
+			}
+		}
+
+		private fun refreshPos() {
+			rowPos?.text = "Position: ${player.pos.display()}"
+		}
+
+		fun toggleRowVel() {
+			rowVel.let {
+				if (it == null) {
+					placeComponent(::rowVel, newRowComponent().apply { rowVel = this })
+					refreshVel()
+				} else layout.remove(it)
+			}
+		}
+
+		private fun refreshVel() {
+			rowVel?.text = "Velocity: ${player.phyBody.linearVel.display()}"
+		}
+
+		fun toggleRowForceAcc() {
+			rowForceAcc.let {
+				if (it == null) {
+					placeComponent(::rowForceAcc, newRowComponent().apply { rowForceAcc = this })
+					refreshForceAcc()
+				} else layout.remove(it)
+			}
+		}
+
+		private fun refreshForceAcc() {
+			rowForceAcc?.text = "Force: TBD | Acc: TBD (Mass: $MASS)"
+		}
+
+		override fun render(renderSystem: RenderSystem) {
+			if (anyRow()) {
+				background.render(renderSystem)
+				layout.render(renderSystem)
+			}
+		}
+
+		private fun anyRow() = components.mapNotNull { it() }.any()
+
+		fun refresh() {
+			if (anyRow()) layout.operate {
+				refreshTpsTpt()
+				refreshPos()
+				refreshVel()
+				refreshForceAcc()
 			}
 		}
 	}
@@ -697,13 +964,13 @@ internal class GameplayScreen(
 			// v_p = v_c * d, may be negative
 			// Autonomous acceleration is made only if v_p < MAX_SPEED.
 			val projVel = curVel dot dir
-			if (projVel < MAX_SPEED) {
+			if (projVel < MAX_SPEED * speedFactor) {
 				// Let v_d be the delta velocity in direction of d,
 				//     a_d be the delta acceleration to be made.
 				// v_t = MAX_SPEED - v_p, must be positive
 				// a_d = dir * clamp(v_t / 1 s, EPSILON, MAX)
-				val deltaVel = MAX_SPEED - projVel
-				val deltaAcc = dir * deltaVel.coerceIn(MOVE_EPSILON, MAX_ACC)
+				val deltaVel = MAX_SPEED * speedFactor - projVel
+				val deltaAcc = dir * deltaVel.coerceIn(MOVE_EPSILON, MAX_ACC * accFactor)
 				phyBody.addForce(deltaAcc * MASS)
 			}
 		}

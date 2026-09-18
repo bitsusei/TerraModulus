@@ -28,6 +28,8 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 	private val world = env.createWorld()
 	var timePerTick = Duration.ZERO
 		private set
+	var tps = 0
+		private set
 
 	var gravity: Vec3d by world::gravity
 	var frictionMode: FrictionMode by Delegates.observable(FrictionMode.Infinite) { _, _, new ->
@@ -90,10 +92,18 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 				val timeSource = TimeSource.Monotonic
 				val interval = 1.seconds / 20 // 20 Hz
 				var lastMark = timeSource.markNow()
+				var lastSec = timeSource.markNow()
+				var ticks = 0
 				while(true) {
 					// uncalculated ticks are not accumulated at this stage, *skipped* instead
 					tick()
 					val now = timeSource.markNow()
+					ticks++
+					if (now - lastSec >= 1.seconds) {
+						tps = ticks
+						ticks = 0
+						lastSec = now
+					}
 					// remaining time after elapsed time used to maintain stable interval
 					val rem = interval - (now - lastMark)
 					timePerTick = (now - lastMark)

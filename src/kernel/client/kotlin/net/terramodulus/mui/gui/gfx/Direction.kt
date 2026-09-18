@@ -16,6 +16,11 @@ package net.terramodulus.mui.gui.gfx
  */
 enum class Direction2S {
 	Positive, Negative;
+
+	companion object {
+		val Pos = Positive
+		val Neg = Negative
+	}
 }
 
 /**
