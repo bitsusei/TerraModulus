@@ -31,6 +31,8 @@ class AgimoPropertyMap {
 		triggerPropertyObservers(key, old, value)
 	}
 
+	inline fun <reified T: AgimoProperty> putProperty(value: T) = putProperty(value.getPropertyKey(), value)
+
 	@Suppress("UNCHECKED_CAST")
 	fun <T: AgimoProperty> removeProperty(key: Key<T>): T? {
 		val old = properties.remove(key) as T?

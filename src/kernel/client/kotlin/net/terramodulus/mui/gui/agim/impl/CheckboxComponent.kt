@@ -14,6 +14,7 @@ import net.terramodulus.mui.gui.gfx.GuiLine
 import net.terramodulus.mui.gui.gfx.RectangleD
 import net.terramodulus.mui.gui.gfx.RenderSystem
 import net.terramodulus.mui.kui.MouseInputHandler
+import kotlin.properties.Delegates
 
 // TODO should actually be non-Pane
 class CheckboxComponent(
@@ -33,7 +34,9 @@ class CheckboxComponent(
 	/**
 	 * Caveat: if this is externally modified, `callback` is never invoked.
 	 */
-	var checked = init
+	var checked: Boolean by Delegates.observable(init) { _, _, newValue ->
+		layout.update(if (newValue) { checkedFace } else { uncheckedFace })
+	}
 	private val uncheckedFace = DrawablesComponent(sequenceOf(
 		DrawablesComponent.Drawable.Geom(GuiLine(canvasHandle, 0, 0, 0, 50, 255, 255, 255, 255)),
 		DrawablesComponent.Drawable.Geom(GuiLine(canvasHandle, 0, 0, 50, 0, 255, 255, 255, 255)),
@@ -67,7 +70,6 @@ class CheckboxComponent(
 	private val mouseCtxStates = MouseCtxStates(inputStatesHandle.mouseGlobalStates, asdHandle).apply {
 		addListener(listenRectFullClick(MouseInputHandler.Buttons.Left.id) {
 			checked = !checked
-			layout.update(if (checked) { checkedFace } else { uncheckedFace })
 			callback(checked)
 		})
 	}

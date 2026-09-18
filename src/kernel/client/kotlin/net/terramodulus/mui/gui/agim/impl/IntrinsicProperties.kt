@@ -22,7 +22,7 @@ data class IntrinsicRatioProperty(val width: UInt, val height: UInt) : AgimoProp
 	}
 }
 
-class IntrinsicDimensionsProperty(val width: UInt, val height: UInt) : AgimoProperty() {
+data class IntrinsicDimensionsProperty(val width: UInt, val height: UInt) : AgimoProperty() {
 	companion object {
 		val KEY = AgimoPropertyMap.Key(IntrinsicDimensionsProperty::class.java)
 	}

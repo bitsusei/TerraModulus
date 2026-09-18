@@ -29,9 +29,7 @@ class TextDisplayComponent(
 	}
 
 	private fun refreshDims() {
-		val dim = IntrinsicDimensionsProperty(context.size.width.toUInt(), context.size.height.toUInt())
-		asdHandle.properties.putProperty(IntrinsicDimensionsProperty.KEY, dim)
-		asdHandle.properties.putProperty(IntrinsicRatioProperty.KEY, dim.computeRatio())
+		asdHandle.properties.putProperty(DimensionsProperty.KEY, DimensionsProperty(context.size))
 	}
 
 	fun update(operation: TextContext.ConfigEnv.() -> Unit) {

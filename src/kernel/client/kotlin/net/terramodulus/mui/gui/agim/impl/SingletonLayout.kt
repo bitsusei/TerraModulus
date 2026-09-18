@@ -65,7 +65,7 @@ class SingletonLayout(container: Container, component: Component, private var co
 
 			override fun layOut(layout: SingletonLayout) = setOf(LayoutComputationUnit({
 				put(layout.container.asdHandle, setOf(RectangleProperty.KEY, BoundsProperty.KEY))
-				put(layout.component.asdHandle, setOf(IntrinsicDimensionsProperty.KEY))
+				put(layout.component.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, DimensionsProperty.KEY))
 			}, {
 				put(layout.component.asdHandle, setOf(BoundsProperty.KEY))
 			}, {
@@ -73,7 +73,7 @@ class SingletonLayout(container: Container, component: Component, private var co
 					val prop = getUnit(layout.container.asdHandle)
 					val rect = prop.getProperty(RectangleProperty.KEY)?.value
 						?: prop.getProperty(BoundsProperty.KEY)!!.value
-					val dims = getUnit(layout.component.asdHandle).getProperty(IntrinsicDimensionsProperty.KEY)!!
+					val dims = DimensionsProperty.getOrComputeValue(getUnit(layout.component.asdHandle))
 					val left: Double
 					val top: Double
 					val right: Double
@@ -81,21 +81,21 @@ class SingletonLayout(container: Container, component: Component, private var co
 					when (x.dir) {
 						Direction2S.Positive -> {
 							right = x.offset
-							left = rect.width - x.offset - dims.width.toDouble()
+							left = rect.width - x.offset - dims.width
 						}
 						Direction2S.Negative -> {
 							left = x.offset
-							right = rect.width - x.offset - dims.width.toDouble()
+							right = rect.width - x.offset - dims.width
 						}
 					}
 					when (y.dir) {
 						Direction2S.Positive -> {
 							top = y.offset
-							bottom = rect.height - y.offset - dims.height.toDouble()
+							bottom = rect.height - y.offset - dims.height
 						}
 						Direction2S.Negative -> {
 							bottom = y.offset
-							top = rect.height - y.offset - dims.height.toDouble()
+							top = rect.height - y.offset - dims.height
 						}
 					}
 					putProperty(BoundsProperty.KEY, BoundsProperty(rect - InsetsD(left, top, right, bottom)))
@@ -128,15 +128,24 @@ class SingletonLayout(container: Container, component: Component, private var co
 		data class Sole(val config: Scaled) : Config() {
 			override fun layOut(layout: SingletonLayout): Set<LayoutComputationUnit> = setOf(
 				LayoutComputationUnit({
-					put(layout.component.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, IntrinsicRatioProperty.KEY))
+					put(layout.component.asdHandle, setOf(
+						IntrinsicDimensionsProperty.KEY,
+						IntrinsicRatioProperty.KEY,
+						DimensionsProperty.KEY,
+					))
 				}, {
-					put(layout.container.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, IntrinsicRatioProperty.KEY))
+					put(layout.container.asdHandle, setOf(
+						IntrinsicDimensionsProperty.KEY,
+						IntrinsicRatioProperty.KEY,
+						DimensionsProperty.KEY,
+					))
 				}, {
 					mapOf(layout.container.asdHandle to AgimoPropertyMap().apply {
 						val target = config.compute(layout, this@LayoutComputationUnit)
 						val dims = IntrinsicDimensionsProperty(target.width.toUInt(), target.height.toUInt())
 						putProperty(IntrinsicDimensionsProperty.KEY, dims)
 						putProperty(IntrinsicRatioProperty.KEY, dims.computeRatio())
+						putProperty(DimensionsProperty.KEY, DimensionsProperty(target))
 					})
 				}),
 				LayoutComputationUnit({
@@ -194,7 +203,7 @@ class SingletonLayout(container: Container, component: Component, private var co
 			override fun dependencies(layout: SingletonLayout):
 				MutableMap<AsdHandle, Set<AgimoPropertyMap.Key<*>>>.() -> Unit = {
 				put(layout.container.asdHandle, setOf(RectangleProperty.KEY, BoundsProperty.KEY))
-				put(layout.component.asdHandle, setOf(IntrinsicRatioProperty.KEY))
+				put(layout.component.asdHandle, setOf(IntrinsicRatioProperty.KEY, DimensionsProperty.KEY))
 			}
 
 			override fun compute(layout: SingletonLayout, handle: LayoutHandle): Dimension2D {
@@ -202,32 +211,32 @@ class SingletonLayout(container: Container, component: Component, private var co
 				return compute(
 					prop.getProperty(RectangleProperty.KEY)?.value
 						?: prop.getProperty(BoundsProperty.KEY)!!.value,
-					handle.getUnit(layout.component.asdHandle).getProperty(IntrinsicRatioProperty.KEY)!!
+					DimensionsProperty.getOrComputeRatio(handle.getUnit(layout.component.asdHandle))
 				)
 			}
 
-			abstract fun compute(container: RectangleD, component: IntrinsicRatioProperty): Dimension2D
+			abstract fun compute(container: RectangleD, component: Dimension2D): Dimension2D
 
 			data object Contain : ObjectFit() {
-				override fun compute(container: RectangleD, component: IntrinsicRatioProperty): Dimension2D {
-					val w = container.width / component.width.toDouble()
-					val h = container.height / component.height.toDouble()
+				override fun compute(container: RectangleD, component: Dimension2D): Dimension2D {
+					val w = container.width / component.width
+					val h = container.height / component.height
 					val scale = min(w, h)
 					return Dimension2D(
-						component.width.toDouble() * scale,
-						component.height.toDouble() * scale,
+						component.width * scale,
+						component.height * scale,
 					)
 				}
 			}
 
 			data object Cover : ObjectFit() {
-				override fun compute(container: RectangleD, component: IntrinsicRatioProperty): Dimension2D {
-					val w = container.width / component.width.toDouble()
-					val h = container.height / component.height.toDouble()
+				override fun compute(container: RectangleD, component: Dimension2D): Dimension2D {
+					val w = container.width / component.width
+					val h = container.height / component.height
 					val scale = max(w, h)
 					return Dimension2D(
-						component.width.toDouble() * scale,
-						component.height.toDouble() * scale,
+						component.width * scale,
+						component.height * scale,
 					)
 				}
 			}
@@ -237,22 +246,22 @@ class SingletonLayout(container: Container, component: Component, private var co
 			override fun dependencies(layout: SingletonLayout):
 				MutableMap<AsdHandle, Set<AgimoPropertyMap.Key<*>>>.() -> Unit = {
 				put(layout.container.asdHandle, setOf(RectangleProperty.KEY, BoundsProperty.KEY))
-				put(layout.component.asdHandle, setOf(IntrinsicDimensionsProperty.KEY))
+				put(layout.component.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, DimensionsProperty.KEY))
 			}
 
 			override fun compute(layout: SingletonLayout, handle: LayoutHandle) = compute(
-				handle.getUnit(layout.component.asdHandle).getProperty(IntrinsicDimensionsProperty.KEY)!!
+				DimensionsProperty.getOrComputeValue(handle.getUnit(layout.component.asdHandle))
 			)
 
-			abstract fun compute(dim: IntrinsicDimensionsProperty): Dimension2D
+			abstract fun compute(dim: Dimension2D): Dimension2D
 
 			/**
 			 * Scale both dimensions by the same scaling
 			 * @param scale `> 0`
 			 */
 			data class Scale(val scale: Double) : Scaled() {
-				override fun compute(dim: IntrinsicDimensionsProperty) =
-					Dimension2D(dim.width.toDouble() * scale, dim.height.toDouble() * scale)
+				override fun compute(dim: Dimension2D) =
+					Dimension2D(dim.width * scale, dim.height * scale)
 			}
 
 			class Compute private constructor(private val x: Value, private val y: Value) : Scaled() {
@@ -261,7 +270,7 @@ class SingletonLayout(container: Container, component: Component, private var co
 				constructor(x: MathEnv.() -> Value, y: MathEnv.() -> Value) : this(x(MathEnvImpl), y(MathEnvImpl))
 
 				sealed interface Value {
-					fun compute(dim: IntrinsicDimensionsProperty): Double
+					fun compute(dim: Dimension2D): Double
 
 					operator fun plus(that: Value) = Operator.Plus(this, that)
 					operator fun minus(that: Value) = Operator.Minus(this, that)
@@ -271,28 +280,28 @@ class SingletonLayout(container: Container, component: Component, private var co
 
 				sealed class Operator private constructor() : Value {
 					data class Plus(val a: Value, val b: Value) : Operator() {
-						override fun compute(dim: IntrinsicDimensionsProperty) = a.compute(dim) + b.compute(dim)
+						override fun compute(dim: Dimension2D) = a.compute(dim) + b.compute(dim)
 					}
 					data class Minus(val a: Value, val b: Value) : Operator() {
-						override fun compute(dim: IntrinsicDimensionsProperty) = a.compute(dim) - b.compute(dim)
+						override fun compute(dim: Dimension2D) = a.compute(dim) - b.compute(dim)
 					}
 					data class Times(val a: Value, val b: Value) : Operator() {
-						override fun compute(dim: IntrinsicDimensionsProperty) = a.compute(dim) * b.compute(dim)
+						override fun compute(dim: Dimension2D) = a.compute(dim) * b.compute(dim)
 					}
 					data class Div(val a: Value, val b: Value) : Operator() {
-						override fun compute(dim: IntrinsicDimensionsProperty) = a.compute(dim) / b.compute(dim)
+						override fun compute(dim: Dimension2D) = a.compute(dim) / b.compute(dim)
 					}
 				}
 
 				sealed class Param private constructor() : Value {
 					data class Num(val value: Double) : Param() {
-						override fun compute(dim: IntrinsicDimensionsProperty) = value
+						override fun compute(dim: Dimension2D) = value
 					}
 					data object DimX : Param() {
-						override fun compute(dim: IntrinsicDimensionsProperty) = dim.width.toDouble()
+						override fun compute(dim: Dimension2D) = dim.width
 					}
 					data object DimY : Param() {
-						override fun compute(dim: IntrinsicDimensionsProperty) = dim.height.toDouble()
+						override fun compute(dim: Dimension2D) = dim.height
 					}
 				}
 
@@ -302,7 +311,7 @@ class SingletonLayout(container: Container, component: Component, private var co
 					fun num(value: Double) = Param.Num(value)
 				}
 
-				override fun compute(dim: IntrinsicDimensionsProperty) = Dimension2D(x.compute(dim), y.compute(dim))
+				override fun compute(dim: Dimension2D) = Dimension2D(x.compute(dim), y.compute(dim))
 			}
 		}
 

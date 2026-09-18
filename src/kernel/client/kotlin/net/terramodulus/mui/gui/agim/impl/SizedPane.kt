@@ -13,6 +13,7 @@ import net.terramodulus.mui.gui.agim.LayoutComputationGroup
 import net.terramodulus.mui.gui.agim.LayoutComputationUnit
 import net.terramodulus.mui.gui.agim.LayoutHandle
 import net.terramodulus.mui.gui.asd.AsdHandle
+import net.terramodulus.mui.gui.gfx.Dimension2D
 import net.terramodulus.mui.gui.gfx.RenderSystem
 
 /**
@@ -27,8 +28,16 @@ class SizedPane(asdHandle: AsdHandle, component: Component, private var config: 
 
 		override fun layOut(handle: LayoutHandle) = sequenceOf(LayoutComputationGroup({}, {
 			setOf(LayoutComputationUnit({}, {
-				put(component.asdHandle, setOf(IntrinsicRatioProperty.KEY, IntrinsicDimensionsProperty.KEY))
-				put(container.asdHandle, setOf(IntrinsicRatioProperty.KEY, IntrinsicDimensionsProperty.KEY))
+				put(component.asdHandle, setOf(
+					IntrinsicRatioProperty.KEY,
+					IntrinsicDimensionsProperty.KEY,
+					DimensionsProperty.KEY,
+				))
+				put(container.asdHandle, setOf(
+					IntrinsicRatioProperty.KEY,
+					IntrinsicDimensionsProperty.KEY,
+					DimensionsProperty.KEY,
+				))
 			}, {
 				val dim = IntrinsicDimensionsProperty(config.width, config.height)
 				val ratio = dim.computeRatio()
@@ -36,10 +45,18 @@ class SizedPane(asdHandle: AsdHandle, component: Component, private var config: 
 					component.asdHandle to AgimoPropertyMap().apply {
 						putProperty(IntrinsicRatioProperty.KEY, ratio)
 						putProperty(IntrinsicDimensionsProperty.KEY, dim)
+						putProperty(DimensionsProperty.KEY, DimensionsProperty(Dimension2D(
+							config.width.toDouble(),
+							config.height.toDouble(),
+						)))
 					},
 					container.asdHandle to AgimoPropertyMap().apply {
 						putProperty(IntrinsicRatioProperty.KEY, ratio)
 						putProperty(IntrinsicDimensionsProperty.KEY, dim)
+						putProperty(DimensionsProperty.KEY, DimensionsProperty(Dimension2D(
+							config.width.toDouble(),
+							config.height.toDouble(),
+						)))
 					}
 				)
 			}), LayoutComputationUnit({ // Forwarding Rect to component

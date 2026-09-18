@@ -99,7 +99,7 @@ class ColumnLayout private constructor(container: Container, elements: ElementLi
 		// If all elements are separated into respective Units, race conditions may occur.
 		mutableSetOf(LayoutComputationUnit({
 			put(container.asdHandle, setOf(BoundsProperty.KEY))
-			elements.forEach { put(it.first.asdHandle, setOf(IntrinsicDimensionsProperty.KEY)) }
+			elements.forEach { put(it.first.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, DimensionsProperty.KEY)) }
 		}, {
 			elements.forEach { put(it.first.asdHandle, setOf(BoundsProperty.KEY)) }
 			put(container.asdHandle, setOf(RectangleProperty.KEY))
@@ -113,23 +113,23 @@ class ColumnLayout private constructor(container: Container, elements: ElementLi
 			var height = 0.0
 			val map = mutableMapOf<AsdHandle, AgimoPropertyMap>()
 			elements.forEach {
-				val dim = getUnit(it.first.asdHandle).getProperty(IntrinsicDimensionsProperty.KEY)!!
-				width = max(width, dim.width.toDouble())
-				height += dim.height.toDouble() + config.gap
+				val dim = DimensionsProperty.getOrComputeValue(getUnit(it.first.asdHandle))
+				width = max(width, dim.width)
+				height += dim.height + config.gap
 			}
 			height = max(height - config.gap, 0.0)
 			elements.forEach {
-				val dim = getUnit(it.first.asdHandle).getProperty(IntrinsicDimensionsProperty.KEY)!!
-				if (config.direction == Direction2S.Negative) anchor.y -= dim.height.toDouble()
+				val dim = DimensionsProperty.getOrComputeValue(getUnit(it.first.asdHandle))
+				if (config.direction == Direction2S.Negative) anchor.y -= dim.height
 				map[it.first.asdHandle] = AgimoPropertyMap().apply {
 					putProperty(BoundsProperty.KEY, BoundsProperty(AnchorAlignmentHelper.simple(
-						RectangleD(anchor.x, anchor.y, width, dim.height.toDouble()),
-						Dimension2D(dim.width.toDouble(), dim.height.toDouble()),
+						RectangleD(anchor.x, anchor.y, width, dim.height),
+						Dimension2D(dim.width, dim.height),
 						ImmVec2d(it.second.alignment, 0.0), // y should make no effect
 					)))
 				}
 				when (config.direction) {
-					Direction2S.Positive -> anchor.y += dim.height.toDouble() + config.gap
+					Direction2S.Positive -> anchor.y += dim.height + config.gap
 					Direction2S.Negative -> anchor.y -= config.gap
 				}
 			}
@@ -141,24 +141,25 @@ class ColumnLayout private constructor(container: Container, elements: ElementLi
 			map
 		})).apply {
 			if (config.intrinsic) add(LayoutComputationUnit({
-				elements.forEach { put(it.first.asdHandle, setOf(IntrinsicDimensionsProperty.KEY)) }
+				elements.forEach {
+					put(it.first.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, DimensionsProperty.KEY))
+				}
 			}, {
-				put(container.asdHandle, setOf(IntrinsicDimensionsProperty.KEY))
+				put(container.asdHandle, setOf(DimensionsProperty.KEY))
 			}, {
 				var width = 0.0
 				var height = 0.0
-				val map = mutableMapOf<AsdHandle, AgimoPropertyMap>()
 				elements.forEach {
-					val dim = getUnit(it.first.asdHandle).getProperty(IntrinsicDimensionsProperty.KEY)!!
-					width = max(width, dim.width.toDouble())
-					height += dim.height.toDouble() + config.gap
+					val dim = DimensionsProperty.getOrComputeValue(getUnit(it.first.asdHandle))
+					width = max(width, dim.width)
+					height += dim.height + config.gap
 				}
 				height = max(height - config.gap, 0.0)
 				mapOf(container.asdHandle to AgimoPropertyMap().apply {
-					putProperty(IntrinsicDimensionsProperty.KEY, IntrinsicDimensionsProperty(
-						(width + config.padding * 2).toUInt(),
-						(height + config.padding * 2).toUInt(),
-					))
+					putProperty(DimensionsProperty.KEY, DimensionsProperty(Dimension2D(
+						width + config.padding * 2,
+						height + config.padding * 2,
+					)))
 				})
 			}))
 		}
@@ -192,7 +193,7 @@ class RowLayout private constructor(container: Container, elements: ElementList<
 		// If all elements are separated into respective Units, race conditions may occur.
 		mutableSetOf(LayoutComputationUnit({
 			put(container.asdHandle, setOf(BoundsProperty.KEY))
-			elements.forEach { put(it.first.asdHandle, setOf(IntrinsicDimensionsProperty.KEY)) }
+			elements.forEach { put(it.first.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, DimensionsProperty.KEY)) }
 		}, {
 			elements.forEach { put(it.first.asdHandle, setOf(BoundsProperty.KEY)) }
 			put(container.asdHandle, setOf(RectangleProperty.KEY))
@@ -206,23 +207,23 @@ class RowLayout private constructor(container: Container, elements: ElementList<
 			var height = 0.0
 			val map = mutableMapOf<AsdHandle, AgimoPropertyMap>()
 			elements.forEach {
-				val dim = getUnit(it.first.asdHandle).getProperty(IntrinsicDimensionsProperty.KEY)!!
-				width += dim.width.toDouble() + config.gap
-				height = max(height, dim.height.toDouble())
+				val dim = DimensionsProperty.getOrComputeValue(getUnit(it.first.asdHandle))
+				width += dim.width + config.gap
+				height = max(height, dim.height)
 			}
 			width = max(width - config.gap, 0.0)
 			elements.forEach {
-				val dim = getUnit(it.first.asdHandle).getProperty(IntrinsicDimensionsProperty.KEY)!!
-				if (config.direction == Direction2S.Negative) anchor.x -= dim.width.toDouble()
+				val dim = DimensionsProperty.getOrComputeValue(getUnit(it.first.asdHandle))
+				if (config.direction == Direction2S.Negative) anchor.x -= dim.width
 				map[it.first.asdHandle] = AgimoPropertyMap().apply {
 					putProperty(BoundsProperty.KEY, BoundsProperty(AnchorAlignmentHelper.simple(
-						RectangleD(anchor.x, anchor.y, dim.width.toDouble(), height),
-						Dimension2D(dim.width.toDouble(), dim.height.toDouble()),
+						RectangleD(anchor.x, anchor.y, dim.width, height),
+						Dimension2D(dim.width, dim.height),
 						ImmVec2d(0.0, it.second.alignment), // x should make no effect
 					)))
 				}
 				when (config.direction) {
-					Direction2S.Positive -> anchor.x += dim.width.toDouble() + config.gap
+					Direction2S.Positive -> anchor.x += dim.width + config.gap
 					Direction2S.Negative -> anchor.x -= config.gap
 				}
 			}
@@ -234,23 +235,25 @@ class RowLayout private constructor(container: Container, elements: ElementList<
 			map
 		})).apply {
 			if (config.intrinsic) add(LayoutComputationUnit({
-				elements.forEach { put(it.first.asdHandle, setOf(IntrinsicDimensionsProperty.KEY)) }
+				elements.forEach {
+					put(it.first.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, DimensionsProperty.KEY))
+				}
 			}, {
-				put(container.asdHandle, setOf(IntrinsicDimensionsProperty.KEY))
+				put(container.asdHandle, setOf(DimensionsProperty.KEY))
 			}, {
 				var width = 0.0
 				var height = 0.0
 				elements.forEach {
-					val dim = getUnit(it.first.asdHandle).getProperty(IntrinsicDimensionsProperty.KEY)!!
-					width += dim.width.toDouble() + config.gap
-					height = max(height, dim.height.toDouble())
+					val dim = DimensionsProperty.getOrComputeValue(getUnit(it.first.asdHandle))
+					width += dim.width + config.gap
+					height = max(height, dim.height)
 				}
 				width = max(width - config.gap, 0.0)
 				mapOf(container.asdHandle to AgimoPropertyMap().apply {
-					putProperty(IntrinsicDimensionsProperty.KEY, IntrinsicDimensionsProperty(
-						(width + config.padding * 2).toUInt(),
-						(height + config.padding * 2).toUInt(),
-					))
+					putProperty(DimensionsProperty.KEY, DimensionsProperty(Dimension2D(
+						width + config.padding * 2,
+						height + config.padding * 2,
+					)))
 				})
 			}))
 		}
