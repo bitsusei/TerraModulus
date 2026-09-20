@@ -6,21 +6,38 @@
 package net.terramodulus.mui.gui.agim.impl
 
 import com.cout970.math.quaternion.ImmQuatd
+import com.cout970.math.vec2.ImmVec2i
 import com.cout970.math.vec2.Vec2d
+import com.cout970.math.vec2.times
 import com.cout970.math.vec3.ImmVec3d
 import com.cout970.math.vec3.Vec3d
 import com.cout970.math.vec3.Vec3f
+import com.cout970.math.vec3.Vec3i
 import com.cout970.math.vec3.div
 import com.cout970.math.vec3.dot
+import com.cout970.math.vec3.floor
+import com.cout970.math.vec3.minus
 import com.cout970.math.vec3.normalized
 import com.cout970.math.vec3.plus
 import com.cout970.math.vec3.times
+import com.cout970.math.vec3.toImmVec3d
 import com.cout970.math.vec3.toImmVec3f
 import com.cout970.math.vec3.toMutVec3d
 import com.cout970.math.vec4.ImmVec4i
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.chunked
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapMerge
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.runBlocking
 import net.terramodulus.core.TerraModulus
 import net.terramodulus.core.getResourceAsString
 import net.terramodulus.engine.Camera3D
+import net.terramodulus.engine.CameraSpace
 import net.terramodulus.engine.PhyBody
 import net.terramodulus.engine.PhyGeom
 import net.terramodulus.engine.SimpleMesh3dGeomCube
@@ -40,11 +57,15 @@ import net.terramodulus.mui.gui.agim.event.MenuEvent
 import net.terramodulus.mui.gui.agim.event.ScreenEvent
 import net.terramodulus.mui.gui.asd.AsdHandle
 import net.terramodulus.mui.gui.gfx.AlphaFilter
+import net.terramodulus.mui.gui.gfx.Cuboid
+import net.terramodulus.mui.gui.gfx.Dimension2I
+import net.terramodulus.mui.gui.gfx.Dimension3D
 import net.terramodulus.mui.gui.gfx.Direction2S
 import net.terramodulus.mui.gui.gfx.Direction6C
 import net.terramodulus.mui.gui.gfx.GeneralTransform
 import net.terramodulus.mui.gui.gfx.GuiLine
 import net.terramodulus.mui.gui.gfx.GuiRect
+import net.terramodulus.mui.gui.gfx.Octree
 import net.terramodulus.mui.gui.gfx.RectStParams
 import net.terramodulus.mui.gui.gfx.RectangleD
 import net.terramodulus.mui.gui.gfx.RenderSystem
@@ -52,13 +73,17 @@ import net.terramodulus.mui.gui.gfx.TextContext
 import net.terramodulus.mui.kui.KeyboardInputHandler
 import net.terramodulus.util.logging.logger
 import net.terramodulus.void.World
+import java.io.Closeable
 import kotlin.math.PI
 import kotlin.math.roundToInt
+import kotlin.math.tan
 import kotlin.properties.Delegates
 import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlin.reflect.KProperty0
+import kotlin.sequences.filter
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 
 private val WHITE = ImmVec4i(255, 255, 255, 255)
@@ -81,6 +106,8 @@ private const val MIN_FRICTION = 1.0 / 16.0
 private const val MAX_FRICTION = 64.0
 private const val MIN_ZOOM = 1.0 / 4.0
 private const val MAX_ZOOM = 4
+private const val CHUNK_SIZE = 512
+private const val MIN_CELL_SIZE = 4
 
 private val logger = logger {}
 
@@ -99,6 +126,8 @@ internal class GameplayScreen(
 	)
 
 	private val canvasHandle = renderSystemHandle.canvasHandle
+
+	private val chunkManager = ChunkManager()
 
 	private lateinit var player: PlayerVoidGeom
 	override val layout = CompositeLayout(this)
@@ -644,6 +673,7 @@ internal class GameplayScreen(
 					}
 					this@GameplayScreen.addListener(ScreenEvent.Update::class.java) {
 						update0(it.muiIoI)
+						chunkManager.update()
 					}
 				}
 			}
@@ -768,7 +798,9 @@ internal class GameplayScreen(
 		}
 
 		private fun refreshTpsTpt() {
-			rowTpsTpt?.text = "TPS: ${core.world!!.tps} | ${core.world!!.timePerTick.inWholeMilliseconds} ms/t"
+			rowTpsTpt?.text = "TPS: ${core.world!!.tps} | ${String.format("%.2f",
+				core.world!!.timePerTick.toDouble(DurationUnit.MILLISECONDS),
+			)} ms/t"
 		}
 
 		fun toggleRowPos() {
@@ -837,7 +869,9 @@ internal class GameplayScreen(
 		private val sphereGeom = SimpleMesh3dGeomSphere(canvasHandle.canvas, 1F)
 
 		override fun wrapCube(phyGeom: PhyGeom, pos: Vec3d) =
-			EnvVoidGeom(phyGeom, WorldObjDrawable(cubeGeom, randomColor(), pos, STD_SCALE, IDENT_ROT), pos)
+			EnvVoidGeom(phyGeom, WorldObjDrawable(cubeGeom, randomColor(), pos, STD_SCALE, IDENT_ROT), pos).apply {
+				chunkManager.add(this)
+			}
 
 		private fun randomColor() = when (Random.nextInt(3)) {
 			0 -> RED
@@ -849,6 +883,7 @@ internal class GameplayScreen(
 		override fun wrapChar(phyBody: PhyBody, pos: Vec3d) =
 			PlayerVoidGeom(phyBody, WorldObjDrawable(sphereGeom, WHITE, pos, STD_SCALE, IDENT_ROT)).apply {
 				player = this
+				chunkManager.add(this)
 			}
 
 		override fun generateWorld(progressBar: World.ProgressBar) {
@@ -973,12 +1008,6 @@ internal class GameplayScreen(
 				val deltaAcc = dir * deltaVel.coerceIn(MOVE_EPSILON, MAX_ACC * accFactor)
 				phyBody.addForce(deltaAcc * MASS)
 			}
-		}
-
-		override fun render() {
-			drawable.setPos(phyBody.pos)
-			camera.refreshPos(phyBody.pos.toImmVec3f().toArray())
-			super.render()
 		}
 
 		override var pos: Vec3d by phyBody::pos
@@ -1179,6 +1208,93 @@ internal class GameplayScreen(
 		val dirs = ArrayList<Vec3d>()
 		Direction6C.entries.forEach { if (inputSystem.condition { keyboard { it.toKey().down } }) dirs.add(it.toVector()) }
 		player.move(dirs.fold(ZeroImmVec3d, Vec3d::plus))
+
+		player.drawable.setPos(player.phyBody.pos)
+		camera.refreshPos(player.phyBody.pos.toImmVec3f().toArray())
+	}
+
+	private class ChunkManager {
+		private val chunks = mutableMapOf<Vec3i, Octree<Object>>()
+
+		private class Object(val geom: VoidGeom) : Octree.Data() {
+			override val aabb get() = Cuboid(
+				geom.drawable.aabb.first - geom.drawable.aabb.second / 2,
+				geom.drawable.aabb.second.let { Dimension3D(it.x, it.y, it.z) },
+			)
+
+			override fun observeAabb(observer: () -> Unit) = geom.drawable.observeAabb(observer)
+
+			override fun unobserveAabb(observer: () -> Unit) = geom.drawable.unobserveAabb(observer)
+		}
+
+		private val objects = mutableMapOf<VoidGeom, Object>()
+		private val objectChunks = mutableMapOf<Object, Vec3i>()
+		private val changedObjects = mutableSetOf<VoidGeom>()
+		private val observers = mutableMapOf<VoidGeom, () -> Unit>()
+
+		fun add(geom: VoidGeom) {
+			addChunk(
+				(geom.drawable.aabb.first / CHUNK_SIZE).floor(),
+				Object(geom).apply { objects[geom] = this },
+			)
+			observers[geom] = {
+				changedObjects.add(geom)
+				Unit
+			}.apply { geom.drawable.observeAabb(this) }
+		}
+
+		private fun addChunk(chunk: Vec3i, obj: Object) {
+			objectChunks[obj] = chunk
+			chunks.computeIfAbsent(chunk) {
+				Octree((it * CHUNK_SIZE + CHUNK_SIZE / 2).toImmVec3d(), CHUNK_SIZE / 2.0, MIN_CELL_SIZE.toDouble())
+			}.add(obj)
+		}
+
+		private fun removeFromChunk(obj: Object) {
+			val chunk = objectChunks.remove(obj)!!
+			chunks[chunk]!!.remove(obj)
+			if (chunks[chunk]!!.isEmpty()) assert(chunks.remove(chunk) != null)
+		}
+
+		fun remove(geom: VoidGeom) {
+			removeFromChunk(objects.remove(geom)!!)
+			changedObjects.remove(geom)
+			geom.drawable.unobserveAabb(observers.remove(geom)!!)
+		}
+
+		fun update() {
+			changedObjects.forEach {
+				val obj = objects[it]!!
+				val cur = (it.drawable.aabb.first / CHUNK_SIZE).floor()
+				if (objectChunks[obj]!! != cur) {
+					removeFromChunk(obj)
+					addChunk(cur, obj)
+				}
+			}
+			changedObjects.clear()
+			chunks.values.forEach { it.update() }
+		}
+
+		@OptIn(ExperimentalCoroutinesApi::class)
+		fun filterCollidingObjects(range: Octree.GeometryRange3d) = chunks.entries.asFlow()
+			.filter {
+				range.intersects(Octree.Range(
+					(it.key * CHUNK_SIZE).toImmVec3d(),
+					((it.key + 1) * CHUNK_SIZE).toImmVec3d(),
+				))
+			}
+			.flatMapMerge { it.value.filterCollidingObjects(range) }
+			.map { it.geom }
+
+		fun simpleFilterRangeObjects(range: Octree.GeometryRange3d) = chunks.asSequence()
+			.filter {
+				range.intersects(Octree.Range(
+					(it.key * CHUNK_SIZE).toImmVec3d(),
+					((it.key + 1) * CHUNK_SIZE).toImmVec3d(),
+				))
+			}
+			.flatMap { it.value.simpleFilterRangeObjects(range) }
+			.map { it.geom }
 	}
 
 	private inner class GameplayRenderer(renderSystemHandle: RenderSystem.Handle) :
@@ -1193,12 +1309,40 @@ internal class GameplayScreen(
 
 		override fun render(renderSystem: RenderSystem) {
 			if (core.world != null) {
-// 				val range = camera.getSpace() * 1.1 // with little tolerance
-// 				val ceil = 3
-// 				val floor = 10
-// 				worldStates.pos = player.pos.toMutVec3d().apply { y -= floor - (ceil + floor).toDouble() / 2 }
-// 				worldStates.dims = ImmVec3d(range.x, (ceil + floor).toDouble(), range.y)
-				core.world!!.objects.values.sortedWith(
+				val range = camera.getSpace() * 1.1 // with little tolerance
+				val ceil = 3
+				val floor = 10
+// 				object : Octree.GeometryRange3d, Closeable {
+// 					private val space = CameraSpace(
+// 						player.pos.toMutVec3d().apply { y -= floor - (ceil + floor).toDouble() / 2 },
+// 						ImmVec3d(range.x, (ceil + floor).toDouble(), range.y),
+// 					)
+// 					private var closed = false
+//
+// 					override fun intersects(other: Octree.Range): Boolean {
+// 						check(!closed)
+// 						return space.intersects(other.min, other.max)
+// 					}
+//
+// 					override fun close() {
+// 						space.close()
+// 						closed = true
+// 					}
+// 				}.use { range ->
+// 					runBlocking {
+// 						@OptIn(ExperimentalCoroutinesApi::class)
+// 						chunkManager.filterCollidingObjects(range).chunked(200).flowOn(Dispatchers.Default).toList().flatten().sortedWith(
+// 							compareBy<World.VoidGeom> { it.pos.y }.thenBy { it.pos.z }
+// 						).forEach { it.render() }
+// 					}
+// 				}
+				val center = player.pos.toMutVec3d().apply { y -= floor - (ceil + floor).toDouble() / 2 }
+				val dims = ImmVec3d(range.x, (ceil + floor).toDouble(), range.y).let {
+					// CameraSpace but its bounding box
+					ImmVec3d(it.x, it.y, it.z + it.y * tan(PI / 6) * 2)
+				}
+				val cuboid = Cuboid(center - dims / 2, Dimension3D(dims.x, dims.y, dims.z))
+				chunkManager.simpleFilterRangeObjects(Octree.Range(cuboid.pt, cuboid.max())).toList().apply { {}() }.sortedWith(
 					compareBy<World.VoidGeom> { it.pos.y }.thenBy { it.pos.z }
 				).forEach { it.render() }
 			}

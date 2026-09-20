@@ -339,4 +339,24 @@ internal object Mui {
 	 */
 	@JvmName("disableScissor")
 	external fun disableScissor(canvasHandle: ULong)
+
+	/**
+	 * @param data `[cx, cy, cz, dx, dy, dz]`; center position and total dimensions
+	 * @return CameraSpace handle pointer
+	 */
+	@JvmName("newCameraSpace")
+	external fun newCameraSpace(data: DoubleArray): ULong
+
+	/**
+	 * @param handle CameraSpace handle pointer
+	 * @param data `[lx, ly, lz, hx, hy, hz]`; minimum and maximum corners for a cuboid range
+	 */
+	@JvmName("intersectCameraSpace")
+	external fun intersectCameraSpace(handle: ULong, data: DoubleArray): Boolean
+
+	/**
+	 * @param handle CameraSpace handle pointer
+	 */
+	@JvmName("dropCameraSpace")
+	external fun dropCameraSpace(handle: ULong)
 }

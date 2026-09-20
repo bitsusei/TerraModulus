@@ -108,6 +108,13 @@ enum class Direction8H {
 }
 
 /**
+ * Set of 6 axial directions.
+ */
+enum class Direction6A {
+	XPos, XNeg, YPos, YNeg, ZPos, ZNeg;
+}
+
+/**
  * Set of 6 3D-relative directions.
  */
 enum class Direction6R {
