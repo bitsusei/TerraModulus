@@ -5,6 +5,7 @@
 
 package net.terramodulus.engine
 
+import net.terramodulus.engine.ferricia.Physics.newSolePhyGeomBox
 import net.terramodulus.engine.ferricia.Physics.newSpacePhyGeomBox
 import net.terramodulus.engine.ferricia.Physics.newWorldPhyGeomBox
 import net.terramodulus.engine.ferricia.Physics.newWorldPhyGeomPlane
@@ -28,6 +29,7 @@ class PhyGeomBox internal constructor(handle: ULong) : PlaceablePhyGeom(handle) 
 	companion object {
 		internal fun newWorld(worldHandle: ULong, lengths: DoubleArray) = PhyGeomBox(newWorldPhyGeomBox(worldHandle, lengths))
 		internal fun newSpace(spaceHandle: ULong, lengths: DoubleArray) = PhyGeomBox(newSpacePhyGeomBox(spaceHandle, lengths))
+		fun newSole(lengths: DoubleArray) = PhyGeomBox(newSolePhyGeomBox(lengths))
 	}
 }
 

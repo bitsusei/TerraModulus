@@ -10,6 +10,7 @@ import net.terramodulus.engine.common.ZeroImmVec3d
 import net.terramodulus.engine.common.toArray
 import net.terramodulus.engine.ferricia.Physics.newPhyCollisionManager
 import net.terramodulus.engine.ferricia.Physics.newPhyWorld
+import net.terramodulus.engine.ferricia.Physics.newPhyWorldStaticSpaceSet
 import net.terramodulus.engine.ferricia.Physics.omitPhyCollisionManagerSpace
 import net.terramodulus.engine.ferricia.Physics.processPhyCollisionManager
 import net.terramodulus.engine.ferricia.Physics.setPhyCollisionManagerFriction
@@ -34,6 +35,9 @@ class PhyWorld internal constructor(envHandle: ULong) {
 
 	fun setFriction(friction: Double) = setPhyCollisionManagerFriction(handle, friction)
 	fun omitSpace(space: PhySpace) = omitPhyCollisionManagerSpace(cmHandle, space.handle)
+
+	fun newStaticSpaceSet() = StaticSpaceSet(newPhyWorldStaticSpaceSet(handle))
+	fun updateStaticSpaceSet(set: StaticSpaceSet) = set.updateIgnored(cmHandle)
 
 	fun tick() {
 		tickPhyWorld(handle, cmHandle)

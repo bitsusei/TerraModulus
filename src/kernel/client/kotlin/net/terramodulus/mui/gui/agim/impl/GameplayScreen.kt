@@ -1342,7 +1342,7 @@ internal class GameplayScreen(
 					ImmVec3d(it.x, it.y, it.z + it.y * tan(PI / 6) * 2)
 				}
 				val cuboid = Cuboid(center - dims / 2, Dimension3D(dims.x, dims.y, dims.z))
-				chunkManager.simpleFilterRangeObjects(Octree.Range(cuboid.pt, cuboid.max())).toList().apply { {}() }.sortedWith(
+				chunkManager.simpleFilterRangeObjects(Octree.Range(cuboid.pt, cuboid.max())).toList().sortedWith(
 					compareBy<World.VoidGeom> { it.pos.y }.thenBy { it.pos.z }
 				).forEach { it.render() }
 			}

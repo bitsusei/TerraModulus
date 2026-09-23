@@ -7,7 +7,6 @@ package net.terramodulus.void
 
 import com.cout970.math.vec3.ImmVec3d
 import com.cout970.math.vec3.Vec3d
-import com.cout970.math.vec3.plus
 import net.terramodulus.engine.PhyBody
 import net.terramodulus.engine.PhyEnv
 import net.terramodulus.engine.PhyGeom
@@ -15,8 +14,6 @@ import net.terramodulus.engine.PhyGeomBox
 import net.terramodulus.util.logging.logger
 import java.io.Closeable
 import kotlin.properties.Delegates
-import kotlin.random.Random
-import kotlin.random.nextInt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -48,7 +45,8 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 	}
 
 	val objects = HashMap<ObjId, VoidGeom>()
-	val mainSpace = world.newSpace()
+// 	val mainSpace = world.newSpace()
+	val staticSpace = world.newStaticSpaceSet()
 	// Floor at y=-100
 	val floor = world.createGeomPlane(doubleArrayOf(0.0, 1.0, 0.0, -100.0))
 
@@ -61,7 +59,7 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 	init {
 		gravity = ImmVec3d(0.0, -9.81, 0.0)
 		floor.setBits(1u, 1u.inv())
-		world.omitSpace(mainSpace)
+// 		world.omitSpace(mainSpace)
 		val commander = commander.build(object : YmirAgent {
 			override fun genCube(commander: Ymir, pos: Vec3d) {
 				objects[ObjId.randomUnique(objects)] =
@@ -87,6 +85,7 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 				Thread.sleep(1)
 			}
 			commander.generateWorld(progressBar)
+			world.updateStaticSpaceSet(staticSpace) // omission
 			// Running in parallel
 			Thread {
 				val timeSource = TimeSource.Monotonic
@@ -164,7 +163,9 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 		return cube
 	}
 
-	internal fun createGeomBox(x: Double, y: Double, z: Double) = mainSpace.createGeomBox(doubleArrayOf(x, y, z))
+	internal fun createGeomBox(x: Double, y: Double, z: Double) = PhyGeomBox.newSole(doubleArrayOf(x, y, z)).apply {
+		staticSpace.addGeom(this)
+	}
 	internal fun createGeomSphere(radius: Double) = world.createGeomSphere(radius)
 
 	fun tick() = world.tick()

@@ -151,6 +151,13 @@ internal object Physics {
 	external fun newSpacePhyGeomBox(handle: ULong, lengths: DoubleArray): ULong
 
 	/**
+	 * @param lengths x, y, z lengths
+	 * @return PhyRawGeomPlaceable pointer
+	 */
+	@JvmName("newSolePhyGeomBox")
+	external fun newSolePhyGeomBox(lengths: DoubleArray): ULong
+
+	/**
 	 * @param handle PhyWorld pointer
 	 * @return PhyRawGeomPlaceable pointer
 	 */
@@ -193,4 +200,31 @@ internal object Physics {
 	@JvmName("getPhyRawGeomPlaceablePosition")
 	external fun getPhyRawGeomPlaceablePosition(handle: ULong): DoubleArray
 
+	/**
+	 * @param handle PhyWorld pointer
+	 * @return StaticSpaceSet pointer
+	 */
+	@JvmName("newPhyWorldStaticSpaceSet")
+	external fun newPhyWorldStaticSpaceSet(handle: ULong): ULong
+
+	/**
+	 * @param setHandle StaticSpaceSet pointer
+	 * @param geomHandle PhyRawGeomPlaceable pointer
+	 */
+	@JvmName("addStaticSpaceSetGeom")
+	external fun addStaticSpaceSetGeom(setHandle: ULong, geomHandle: ULong)
+
+	/**
+	 * @param setHandle StaticSpaceSet pointer
+	 * @param geomHandle PhyRawGeomPlaceable pointer
+	 */
+	@JvmName("removeStaticSpaceSetGeom")
+	external fun removeStaticSpaceSetGeom(setHandle: ULong, geomHandle: ULong)
+
+	/**
+	 * @param setHandle StaticSpaceSet pointer
+	 * @param cmHandle PhyCollisionManager pointer
+	 */
+	@JvmName("updateStaticSpaceSetIgnored")
+	external fun updateStaticSpaceSetIgnored(setHandle: ULong, cmHandle: ULong)
 }
