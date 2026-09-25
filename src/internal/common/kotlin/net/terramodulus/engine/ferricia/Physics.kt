@@ -88,6 +88,13 @@ internal object Physics {
 	external fun newPhyBody(handle: ULong, massHandle: ULong): ULong
 
 	/**
+	 * @param handle PhyWorld pointer
+	 * @return PhyBody pointer
+	 */
+	@JvmName("newKinematicPhyBody")
+	external fun newKinematicPhyBody(handle: ULong): ULong
+
+	/**
 	 * @param handle PhyBody pointer
 	 * @param geomHandle PhyRawGeomPlaceable pointer
 	 */

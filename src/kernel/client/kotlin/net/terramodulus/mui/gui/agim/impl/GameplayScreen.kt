@@ -6,8 +6,10 @@
 package net.terramodulus.mui.gui.agim.impl
 
 import com.cout970.math.quaternion.ImmQuatd
-import com.cout970.math.vec2.ImmVec2i
+import com.cout970.math.vec2.ImmVec2d
 import com.cout970.math.vec2.Vec2d
+import com.cout970.math.vec2.minus
+import com.cout970.math.vec2.normalized
 import com.cout970.math.vec2.times
 import com.cout970.math.vec3.ImmVec3d
 import com.cout970.math.vec3.Vec3d
@@ -24,20 +26,14 @@ import com.cout970.math.vec3.toImmVec3d
 import com.cout970.math.vec3.toImmVec3f
 import com.cout970.math.vec3.toMutVec3d
 import com.cout970.math.vec4.ImmVec4i
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.chunked
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapMerge
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.runBlocking
 import net.terramodulus.core.TerraModulus
 import net.terramodulus.core.getResourceAsString
 import net.terramodulus.engine.Camera3D
-import net.terramodulus.engine.CameraSpace
 import net.terramodulus.engine.PhyBody
 import net.terramodulus.engine.PhyGeom
 import net.terramodulus.engine.SimpleMesh3dGeomCube
@@ -58,7 +54,6 @@ import net.terramodulus.mui.gui.agim.event.ScreenEvent
 import net.terramodulus.mui.gui.asd.AsdHandle
 import net.terramodulus.mui.gui.gfx.AlphaFilter
 import net.terramodulus.mui.gui.gfx.Cuboid
-import net.terramodulus.mui.gui.gfx.Dimension2I
 import net.terramodulus.mui.gui.gfx.Dimension3D
 import net.terramodulus.mui.gui.gfx.Direction2S
 import net.terramodulus.mui.gui.gfx.Direction6C
@@ -71,9 +66,9 @@ import net.terramodulus.mui.gui.gfx.RectangleD
 import net.terramodulus.mui.gui.gfx.RenderSystem
 import net.terramodulus.mui.gui.gfx.TextContext
 import net.terramodulus.mui.kui.KeyboardInputHandler
+import net.terramodulus.mui.kui.MouseInputHandler
 import net.terramodulus.util.logging.logger
 import net.terramodulus.void.World
-import java.io.Closeable
 import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.math.tan
@@ -93,8 +88,10 @@ private val BLUE = ImmVec4i(0, 0, 255, 255)
 private val STD_SCALE = ImmVec3d(.5, .5, .5)
 private val IDENT_ROT = ImmQuatd(1.0, .0, .0, .0)
 private const val MASS = 1.0
-private const val MAX_SPEED = PI * PI // reachable by autonomous movement
-private const val MAX_ACC = PI * PI // without other forces, reaching MAX_SPEED in one second
+private const val MAX_SPEED = PI // reachable by autonomous movement
+private const val MAX_ACC = PI // without other forces, reaching MAX_SPEED in one second
+private const val MAX_PROJ_SPEED = 64.0
+private const val MIN_PROJ_SPEED = 1.0 / 4.0
 private const val MIN_SPEED_FACTOR = 1.0 / 16.0
 private const val MAX_SPEED_FACTOR = 64.0
 private const val MIN_ACC_FACTOR = 1.0 / 16.0
@@ -137,6 +134,14 @@ internal class GameplayScreen(
 	private var hotkeysEnabled = false
 	private var speedFactor = 1.0
 	private var accFactor = 1.0
+	private var makeKinematicProjection = false
+	private var projectionSpeed = 2.0
+
+	private val worldCommands = mutableListOf<WorldCommand>()
+
+	private sealed class WorldCommand {
+		data class AddProjection(val pos: Vec3d, val dir: Vec3d) : WorldCommand()
+	}
 
 	init {
 		renderSystemHandle.setBackgroundColor(0F, 0F, 0F, 0F)
@@ -145,12 +150,21 @@ internal class GameplayScreen(
 			WorldInitScreen(p1, p2, p3).apply {
 				core.world = World(object : World.Ymir.Builder {
 					override fun build(agent: World.YmirAgent) = Ymir(worldOptions, agent)
-				}, progressBar)
+				}, progressBar).apply {
+					addUpdaterListener { e ->
+						worldCommands.forEach {
+							when (it) {
+								is WorldCommand.AddProjection -> (e.commander as Ymir).addProjection(it.pos, it.dir)
+							}
+						}
+						worldCommands.clear()
+					}
+				}
 				addListener(ScreenEvent.Close::class.java) {
 					this@GameplayScreen.layout.update {
 						add(SingletonLayout(
 							this@GameplayScreen,
-							GameplayRenderer(renderSystemHandle),
+							GameplayRenderer(renderSystemHandle, inputStatesHandle),
 							SingletonLayout.Config.Absolute.Full,
 						))
 						add(SingletonLayout(
@@ -297,6 +311,12 @@ internal class GameplayScreen(
 												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
 													TextContext.Config(20F, 20F, ImmVec4i(255)),
 												).apply { text = "Acceleration Factor" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Projection Type" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Projection Speed" },
 // 												CollapsablePane(canvasHandle, ComponentAsdHandleImpl()) {
 // 													config(YPos, Neg, TextDisplayComponent(
 // 														ComponentAsdHandleImpl(),
@@ -506,6 +526,62 @@ internal class GameplayScreen(
 														).apply {
 															listener = {
 																text = String.format("%.4g", accFactor)
+															}.apply { this() }
+														}, SingletonLayout.Config.Absolute.Full))
+													}
+												}, SizedPane.Config(100u, 20u)),
+												run {
+													lateinit var listener: () -> Unit
+													ButtonComponent(
+														ComponentAsdHandleImpl(),
+														inputStatesHandle,
+														{
+															lateinit var layout: SingletonLayout
+															SingletonLayout(this, TextDisplayComponent(
+																ComponentAsdHandleImpl(),
+																renderSystemHandle,
+																TextContext.Config(20F, 20F, ImmVec4i(255)),
+															).apply {
+																val listener0 = {
+																	text = when (makeKinematicProjection) {
+																		true -> "Kinematic"
+																		false -> "Dynamic"
+																	}
+																}.apply { this() }
+																listener = { layout.operate { listener0() } }
+															}, SingletonLayout.Config.Sole(
+																SingletonLayout.Config.Scaled.Scale(1.0)
+															)).apply { layout = this }
+														},
+													) {
+														makeKinematicProjection = !makeKinematicProjection
+														listener()
+													}
+												},
+												SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl())
+												parent@ {
+													CompositeLayout(this).apply {
+														lateinit var listener: () -> Unit
+														add(SingletonLayout(this@parent, SliderComponent(
+															canvasHandle, inputStatesHandle, ComponentAsdHandleImpl()
+														) {
+															config(withRanged(
+																MIN_PROJ_SPEED..MAX_PROJ_SPEED,
+																projectionSpeed,
+																transformLinearExponential(2.0),
+															) {
+																projectionSpeed = it
+																listener()
+															}, xPos, ImmVec4i(123, 234, 56, 255),
+																ImmVec4i(50, 50, 250, 255),
+															)
+														}, SingletonLayout.Config.Absolute.Full))
+														add(SingletonLayout(this@parent, TextDisplayComponent(
+															ComponentAsdHandleImpl(), renderSystemHandle,
+															TextContext.Config(20F, 20F, ImmVec4i(255))
+														).apply {
+															listener = {
+																text = String.format("%.4g", projectionSpeed)
 															}.apply { this() }
 														}, SingletonLayout.Config.Absolute.Full))
 													}
@@ -861,12 +937,16 @@ internal class GameplayScreen(
 		}
 	}
 
+	private val interactiveGeoms = hashSetOf<VoidGeom>()
+	private val interactiveGeomsLock = Any()
+
 	private inner class Ymir(
 		private val options: WorldCreateScreen.WorldOptions,
 		private val agent: World.YmirAgent,
 	) : World.Ymir {
 		private val cubeGeom = SimpleMesh3dGeomCube(canvasHandle.canvas, 2F)
 		private val sphereGeom = SimpleMesh3dGeomSphere(canvasHandle.canvas, 1F)
+		private val projectGeom = SimpleMesh3dGeomSphere(canvasHandle.canvas, .5F)
 
 		override fun wrapCube(phyGeom: PhyGeom, pos: Vec3d) =
 			EnvVoidGeom(phyGeom, WorldObjDrawable(cubeGeom, randomColor(), pos, STD_SCALE, IDENT_ROT), pos).apply {
@@ -883,6 +963,13 @@ internal class GameplayScreen(
 		override fun wrapChar(phyBody: PhyBody, pos: Vec3d) =
 			PlayerVoidGeom(phyBody, WorldObjDrawable(sphereGeom, WHITE, pos, STD_SCALE, IDENT_ROT)).apply {
 				player = this
+				synchronized(interactiveGeomsLock) { interactiveGeoms.add(this) }
+				chunkManager.add(this)
+			}
+
+		override fun wrapProject(phyBody: PhyBody, pos: Vec3d) =
+			ProjectionVoidGeom(phyBody, WorldObjDrawable(projectGeom, WHITE, pos, STD_SCALE, IDENT_ROT)).apply {
+				synchronized(interactiveGeomsLock) { interactiveGeoms.add(this) }
 				chunkManager.add(this)
 			}
 
@@ -920,6 +1007,12 @@ internal class GameplayScreen(
 				}
 			}
 			// TODO char type
+		}
+
+		fun addProjection(pos: Vec3d, dir: Vec3d) {
+			agent.genProject(this, pos, makeKinematicProjection).apply {
+				phyBody.linearVel = dir * projectionSpeed
+			}
 		}
 
 		// Reference: https://en.wikipedia.org/wiki/Maze_generation_algorithm
@@ -985,10 +1078,17 @@ internal class GameplayScreen(
 	private inner class EnvVoidGeom(override val phyGeom: PhyGeom, drawable: WorldObjDrawable, override val pos: Vec3d) :
 		VoidGeom(drawable), World.EnvVoidGeom
 
+	private inner class ProjectionVoidGeom(
+		override val phyBody: PhyBody,
+		drawable: WorldObjDrawable,
+	) : VoidGeom(drawable), World.InteractiveVoidGeom {
+		override val pos: Vec3d by phyBody::pos
+	}
+
 	private inner class PlayerVoidGeom(
 		override val phyBody: PhyBody,
 		drawable: WorldObjDrawable,
-	) : VoidGeom(drawable), World.PlayerVoidGeom {
+	) : VoidGeom(drawable), World.InteractiveVoidGeom {
 		fun move(dir: Vec3d) {
 			if (dir == ZeroImmVec3d) return // avoid math errors and computations
 			val dir = ImmVec3d(dir.x, dir.y, dir.z).normalized()
@@ -1209,8 +1309,8 @@ internal class GameplayScreen(
 		Direction6C.entries.forEach { if (inputSystem.condition { keyboard { it.toKey().down } }) dirs.add(it.toVector()) }
 		player.move(dirs.fold(ZeroImmVec3d, Vec3d::plus))
 
-		player.drawable.setPos(player.phyBody.pos)
-		camera.refreshPos(player.phyBody.pos.toImmVec3f().toArray())
+		synchronized(interactiveGeomsLock) { interactiveGeoms.forEach { it.drawable.setPos(it.pos) } }
+		camera.refreshPos(player.pos.toImmVec3f().toArray())
 	}
 
 	private class ChunkManager {
@@ -1297,9 +1397,26 @@ internal class GameplayScreen(
 			.map { it.geom }
 	}
 
-	private inner class GameplayRenderer(renderSystemHandle: RenderSystem.Handle) :
-		Component(ComponentAsdHandleImpl()) {
+	private inner class GameplayRenderer(
+		renderSystemHandle: RenderSystem.Handle,
+		inputStatesHandle: InputStatesHandle,
+	) : Component(ComponentAsdHandleImpl()) {
 		private val tpsText = TextContext(renderSystemHandle, TextContext.Config(16F, 16F, ImmVec4i(255)))
+
+		private val mouseCtxStates = MouseCtxStates(inputStatesHandle.mouseGlobalStates, asdHandle).apply {
+			// There is yet no input masking, so even it is triggered on another AGIMO, this is still triggered.
+			addListener(MouseState.Listener(setOf(
+				MouseState.Trigger(MouseState.Key.ButtonJustDown(MouseInputHandler.Buttons.Right.id)) { true },
+			)) {
+				require(it is MouseState.ButtonJustDown)
+				assert(it.id == MouseInputHandler.Buttons.Right.id)
+				val dir = (it.pos - ImmVec2d(asdHandle.rect.width / 2, asdHandle.rect.height / 2)).normalized().run {
+					ImmVec3d(x, 0.0, -y) // window direction to world direction
+				}
+				val pos = player.pos + dir * (.5 + .25 + .01) // radius of char + radius of proj + small gap
+				worldCommands.add(WorldCommand.AddProjection(pos, dir))
+			})
+		}
 
 		init {
 			asdHandle.observeRect {

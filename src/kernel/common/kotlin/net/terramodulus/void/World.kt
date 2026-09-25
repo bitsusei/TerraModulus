@@ -75,6 +75,14 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 					pos,
 				)
 			}
+
+			override fun genProject(commander: Ymir, pos: Vec3d, kinematic: Boolean) = commander.wrapProject((
+				if (kinematic) world.newKinematicBody()
+				else world.newBody(PhyBody.Mass.SphereTotal(.5, .25))
+			).apply {
+				addGeom(createGeomSphere(.25))
+				this.pos = pos
+			}, pos).apply { objects[ObjId.randomUnique(objects)] = this }
 		})
 		Thread {
 			var ready = false // intermediate state to prevent cross-thread processing by listener invocation
@@ -94,7 +102,8 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 				var lastSec = timeSource.markNow()
 				var ticks = 0
 				while(true) {
-					// uncalculated ticks are not accumulated at this stage, *skipped* instead
+					updateListeners.forEach { it(UpdaterEvent(commander)) }
+					// uncalculated ticks are not accumulated at this stage, *delayed* instead
 					tick()
 					val now = timeSource.markNow()
 					ticks++
@@ -116,10 +125,24 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 		}.start()
 	}
 
+	data class UpdaterEvent(val commander: Ymir)
+
+	private val updateListeners = mutableSetOf<(UpdaterEvent) -> Unit>()
+
+	fun addUpdaterListener(listener: (UpdaterEvent) -> Unit) {
+		updateListeners.add(listener)
+	}
+
+	fun removeUpdaterListener(listener: (UpdaterEvent) -> Unit) {
+		updateListeners.remove(listener)
+	}
+
 	interface Ymir {
 		fun wrapCube(phyGeom: PhyGeom, pos: Vec3d): VoidGeom
 
 		fun wrapChar(phyBody: PhyBody, pos: Vec3d): VoidGeom
+
+		fun wrapProject(phyBody: PhyBody, pos: Vec3d): InteractiveVoidGeom
 
 		/**
 		 * Caveat: This is run in parallel, so code involving any graphic context should not be included here.
@@ -135,6 +158,8 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 		fun genCube(commander: Ymir, pos: Vec3d)
 
 		fun genChar(commander: Ymir, pos: Vec3d)
+
+		fun genProject(commander: Ymir, pos: Vec3d, kinematic: Boolean): InteractiveVoidGeom
 	}
 
 	/** A wrapper containing rendering context, with a geom of dimensions of 1mx1mx1m */
@@ -151,7 +176,7 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 		override val phyGeoms: Sequence<PhyGeom> get() = sequenceOf(phyGeom)
 	}
 
-	interface PlayerVoidGeom : VoidGeom {
+	interface InteractiveVoidGeom : VoidGeom {
 		val phyBody: PhyBody
 		override val phyGeoms: Sequence<PhyGeom> get() = phyBody.geoms.asSequence()
 	}

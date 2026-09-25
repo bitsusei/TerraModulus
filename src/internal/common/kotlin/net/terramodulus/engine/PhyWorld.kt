@@ -31,7 +31,8 @@ class PhyWorld internal constructor(envHandle: ULong) {
 	fun createGeomPlane(params: DoubleArray) = PhyGeomPlane(handle, params)
 
 	fun newSpace() = PhySpace(handle)
-	fun newBody(mass: PhyBody.Mass) = PhyBody(handle, mass)
+	fun newBody(mass: PhyBody.Mass) = PhyBody.withMass(handle, mass)
+	fun newKinematicBody() = PhyBody.asKinematic(handle)
 
 	fun setFriction(friction: Double) = setPhyCollisionManagerFriction(handle, friction)
 	fun omitSpace(space: PhySpace) = omitPhyCollisionManagerSpace(cmHandle, space.handle)
