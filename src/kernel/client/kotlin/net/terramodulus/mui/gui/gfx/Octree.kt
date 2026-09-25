@@ -45,6 +45,8 @@ class Octree<D : Octree.Data>(center: Vec3d, halfLength: Double, private val min
 		fun contains(other: Range) = min.x <= other.min.x && max.x >= other.max.x &&
 			min.y <= other.min.y && max.y >= other.max.y &&
 			min.z <= other.min.z && max.z >= other.max.z
+
+		fun center() = ImmVec3d((min.x + max.x) / 2, (min.y + max.y) / 2, (min.z + max.z) / 2)
 	}
 
 	private data class NodeRange(val center: Vec3d, val halfLength: Double) {
@@ -114,7 +116,7 @@ class Octree<D : Octree.Data>(center: Vec3d, halfLength: Double, private val min
 
 				if (x != null && y != null && z != null) {
 					val branch = branches[BranchKey(x, y, z)]!!
-					if (branch.range.toRange().contains(leaf.range)) {
+					if (branch.range.toRange().contains(leaf.aabb)) {
 						branch.add(leaf)
 						return true
 					}
@@ -173,20 +175,18 @@ class Octree<D : Octree.Data>(center: Vec3d, halfLength: Double, private val min
 		}
 
 		fun filterCollidingObjects(range: GeometryRange3d): Flow<D> {
-			val seq = directObjects.asFlow().filter { range.intersects(it.range) }
+			val seq = directObjects.asFlow().filter { range.intersects(it.aabb) }
 			return branches.let { if (it == null) seq else merge(seq, it.filterCollidingObjects(range)) }
 		}
 
 		fun simpleFilterRangeObjects(range: GeometryRange3d): Sequence<D> {
-			val seq = directObjects.asSequence().filter { range.intersects(it.range) }
+			val seq = directObjects.asSequence().filter { range.intersects(it.aabb) }
 			return branches.let { if (it == null) seq else seq + it.simpleFilterRangeObjects(range) }
 		}
 	}
 
 	abstract class Data {
-		abstract val aabb: Cuboid
-
-		val range get() = Range(aabb.pt, aabb.max())
+		abstract val aabb: Range
 
 		abstract fun observeAabb(observer: () -> Unit)
 
@@ -231,12 +231,12 @@ class Octree<D : Octree.Data>(center: Vec3d, halfLength: Double, private val min
 		changedObjects.forEach {
 			objects[it]!!.run {
 				var last = last()
-				if (!last.adjustFit(it) && !last.contains(it.range)) {
+				if (!last.adjustFit(it) && !last.contains(it.aabb)) {
 					removeNested(this, it)
 					removeLast()
 					while (size > 1) {
 						last = last()
-						if (last.range.toRange().contains(it.range)) break
+						if (last.range.toRange().contains(it.aabb)) break
 						removeLast()
 					}
 					last.add(it)

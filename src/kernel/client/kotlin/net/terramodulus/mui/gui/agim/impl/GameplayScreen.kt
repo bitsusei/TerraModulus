@@ -36,9 +36,11 @@ import net.terramodulus.core.getResourceAsString
 import net.terramodulus.engine.Camera3D
 import net.terramodulus.engine.PhyBody
 import net.terramodulus.engine.PhyGeom
+import net.terramodulus.engine.PlaceablePhyGeom
 import net.terramodulus.engine.SimpleMesh3dGeomCube
 import net.terramodulus.engine.SimpleMesh3dGeomSphere
 import net.terramodulus.engine.WorldObjDrawable
+import net.terramodulus.engine.common.ImmVec3dFromArray
 import net.terramodulus.engine.common.ZeroImmVec3d
 import net.terramodulus.mui.gui.InputStatesHandle
 import net.terramodulus.mui.gui.MouseCtxStates
@@ -70,7 +72,10 @@ import net.terramodulus.mui.kui.MouseInputHandler
 import net.terramodulus.util.logging.logger
 import net.terramodulus.void.World
 import kotlin.math.PI
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 import kotlin.math.tan
 import kotlin.properties.Delegates
 import kotlin.random.Random
@@ -944,12 +949,14 @@ internal class GameplayScreen(
 		private val options: WorldCreateScreen.WorldOptions,
 		private val agent: World.YmirAgent,
 	) : World.Ymir {
+		// Caveat: Those must be created on the main thread.
 		private val cubeGeom = SimpleMesh3dGeomCube(canvasHandle.canvas, 2F)
 		private val sphereGeom = SimpleMesh3dGeomSphere(canvasHandle.canvas, 1F)
-		private val projectGeom = SimpleMesh3dGeomSphere(canvasHandle.canvas, .5F)
 
 		override fun wrapCube(phyGeom: PhyGeom, pos: Vec3d) =
-			EnvVoidGeom(phyGeom, WorldObjDrawable(cubeGeom, randomColor(), pos, STD_SCALE, IDENT_ROT), pos).apply {
+			EnvVoidGeom(phyGeom, setOf(
+				WorldObjDrawable(cubeGeom, randomColor(), pos, STD_SCALE, IDENT_ROT),
+			), pos).apply {
 				chunkManager.add(this)
 			}
 
@@ -960,15 +967,34 @@ internal class GameplayScreen(
 			else -> throw AssertionError("Invalid color")
 		}
 
-		override fun wrapChar(phyBody: PhyBody, pos: Vec3d) =
-			PlayerVoidGeom(phyBody, WorldObjDrawable(sphereGeom, WHITE, pos, STD_SCALE, IDENT_ROT)).apply {
+		override fun wrapChar(phyBody: PhyBody, pos: Vec3d, descriptors: Collection<World.CharDescriptor.Entry>) =
+			PlayerVoidGeom(phyBody, descriptors.associate { (offset, variation, geom) ->
+				when (variation) {
+					is World.CharDescriptor.Variation.Cube -> WorldObjDrawable(
+						cubeGeom,
+						WHITE,
+						pos + offset,
+						STD_SCALE * variation.length,
+						IDENT_ROT,
+					)
+					is World.CharDescriptor.Variation.Sphere -> WorldObjDrawable(
+						sphereGeom,
+						WHITE,
+						pos + offset,
+						STD_SCALE * (variation.radius / .5),
+						IDENT_ROT,
+					)
+				} to geom
+			}).apply {
 				player = this
 				synchronized(interactiveGeomsLock) { interactiveGeoms.add(this) }
 				chunkManager.add(this)
 			}
 
 		override fun wrapProject(phyBody: PhyBody, pos: Vec3d) =
-			ProjectionVoidGeom(phyBody, WorldObjDrawable(projectGeom, WHITE, pos, STD_SCALE, IDENT_ROT)).apply {
+			ProjectionVoidGeom(phyBody, setOf(
+				WorldObjDrawable(sphereGeom, WHITE, pos, STD_SCALE / 2, IDENT_ROT),
+			)).apply {
 				synchronized(interactiveGeomsLock) { interactiveGeoms.add(this) }
 				chunkManager.add(this)
 			}
@@ -978,14 +1004,10 @@ internal class GameplayScreen(
 				WorldCreateScreen.WorldOptions.WorldType.CubeSets -> {
 					// Spawn point
 					agent.genCube(this, ImmVec3d(.0))
-					// Main Character
-					agent.genChar(this, ImmVec3d(0.0, 1.0, 0.0))
 					// Test Objects
 					randomCubes(progressBar)
 				}
 				WorldCreateScreen.WorldOptions.WorldType.Flat -> {
-					// Main Character
-					agent.genChar(this, ImmVec3d(0.0, 1.0, 0.0))
 					// Floor
 					val radius = 100
 					for (x in -radius..radius) {
@@ -1006,7 +1028,19 @@ internal class GameplayScreen(
 					progressBar.setProgress(1.0)
 				}
 			}
-			// TODO char type
+			// Main Character
+			agent.genChar(this, ImmVec3d(0.0, 1.0, 0.0), when (options.charType) {
+				WorldCreateScreen.WorldOptions.CharacterType.Sphere ->
+					listOf(World.CharDescriptor(ZeroImmVec3d, World.CharDescriptor.Variation.Sphere(.5)))
+				WorldCreateScreen.WorldOptions.CharacterType.Complex -> {
+					val r = 1 / sqrt(2.0)
+					listOf(
+						World.CharDescriptor(ZeroImmVec3d, World.CharDescriptor.Variation.Sphere(.5)),
+						World.CharDescriptor(ImmVec3d(.75, .75) * r, World.CharDescriptor.Variation.Sphere(.25)),
+						World.CharDescriptor(ImmVec3d(-.75, .75) * r, World.CharDescriptor.Variation.Sphere(.25)),
+					)
+				}
+			})
 		}
 
 		fun addProjection(pos: Vec3d, dir: Vec3d) {
@@ -1069,26 +1103,37 @@ internal class GameplayScreen(
 		}
 	}
 
-	private abstract inner class VoidGeom(val drawable: WorldObjDrawable) : World.VoidGeom {
+	private abstract inner class VoidGeom(val drawables: Collection<WorldObjDrawable>) : World.VoidGeom {
 		override fun render() {
-			renderGwrGeo(drawable)
+			drawables.forEach { renderGwrGeo(it) }
+		}
+
+		/**
+		 * If [drawables] may contain more than one instance, this default implementation must be overridden.
+		 */
+		open fun refreshPos() {
+			check(drawables.size == 1)
+			drawables.first().setPos(pos)
 		}
 	}
 
-	private inner class EnvVoidGeom(override val phyGeom: PhyGeom, drawable: WorldObjDrawable, override val pos: Vec3d) :
-		VoidGeom(drawable), World.EnvVoidGeom
+	private inner class EnvVoidGeom(
+		override val phyGeom: PhyGeom,
+		drawables: Collection<WorldObjDrawable>,
+		override val pos: Vec3d,
+	) : VoidGeom(drawables), World.EnvVoidGeom
 
 	private inner class ProjectionVoidGeom(
 		override val phyBody: PhyBody,
-		drawable: WorldObjDrawable,
-	) : VoidGeom(drawable), World.InteractiveVoidGeom {
+		drawables: Collection<WorldObjDrawable>,
+	) : VoidGeom(drawables), World.InteractiveVoidGeom {
 		override val pos: Vec3d by phyBody::pos
 	}
 
 	private inner class PlayerVoidGeom(
 		override val phyBody: PhyBody,
-		drawable: WorldObjDrawable,
-	) : VoidGeom(drawable), World.InteractiveVoidGeom {
+		private val drawablesMap: Map<WorldObjDrawable, PhyGeom>,
+	) : VoidGeom(drawablesMap.keys), World.InteractiveVoidGeom {
 		fun move(dir: Vec3d) {
 			if (dir == ZeroImmVec3d) return // avoid math errors and computations
 			val dir = ImmVec3d(dir.x, dir.y, dir.z).normalized()
@@ -1107,6 +1152,13 @@ internal class GameplayScreen(
 				val deltaVel = MAX_SPEED * speedFactor - projVel
 				val deltaAcc = dir * deltaVel.coerceIn(MOVE_EPSILON, MAX_ACC * accFactor)
 				phyBody.addForce(deltaAcc * MASS)
+			}
+		}
+
+		override fun refreshPos() {
+			drawablesMap.forEach { (drawable, geom) ->
+				require(geom is PlaceablePhyGeom)
+				drawable.setPos(ImmVec3dFromArray(geom.getPosition()))
 			}
 		}
 
@@ -1309,7 +1361,7 @@ internal class GameplayScreen(
 		Direction6C.entries.forEach { if (inputSystem.condition { keyboard { it.toKey().down } }) dirs.add(it.toVector()) }
 		player.move(dirs.fold(ZeroImmVec3d, Vec3d::plus))
 
-		synchronized(interactiveGeomsLock) { interactiveGeoms.forEach { it.drawable.setPos(it.pos) } }
+		synchronized(interactiveGeomsLock) { interactiveGeoms.forEach { it.refreshPos() } }
 		camera.refreshPos(player.pos.toImmVec3f().toArray())
 	}
 
@@ -1317,14 +1369,27 @@ internal class GameplayScreen(
 		private val chunks = mutableMapOf<Vec3i, Octree<Object>>()
 
 		private class Object(val geom: VoidGeom) : Octree.Data() {
-			override val aabb get() = Cuboid(
-				geom.drawable.aabb.first - geom.drawable.aabb.second / 2,
-				geom.drawable.aabb.second.let { Dimension3D(it.x, it.y, it.z) },
-			)
+			override val aabb get() = run {
+				if (geom.drawables.size == 1) {
+					val drawable = geom.drawables.first()
+					val min = drawable.aabb.first - drawable.aabb.second / 2
+					Octree.Range(min, min + drawable.aabb.second)
+				} else {
+					assert(geom.drawables.size > 1)
+					geom.drawables.fold(null) { acc, e ->
+						val min = e.aabb.first - e.aabb.second / 2
+						val max = min + e.aabb.second
+						if (acc == null) Octree.Range(min, max) else Octree.Range(
+							ImmVec3d(min(acc.min.x, min.x), min(acc.min.y, min.y), min(acc.min.z, min.z)),
+							ImmVec3d(max(acc.max.x, max.x), max(acc.max.y, max.y), max(acc.max.z, max.z)),
+						)
+					}!!
+				}
+			}
 
-			override fun observeAabb(observer: () -> Unit) = geom.drawable.observeAabb(observer)
+			override fun observeAabb(observer: () -> Unit) = geom.drawables.forEach { it.observeAabb(observer) }
 
-			override fun unobserveAabb(observer: () -> Unit) = geom.drawable.unobserveAabb(observer)
+			override fun unobserveAabb(observer: () -> Unit) = geom.drawables.forEach { it.unobserveAabb(observer) }
 		}
 
 		private val objects = mutableMapOf<VoidGeom, Object>()
@@ -1332,15 +1397,27 @@ internal class GameplayScreen(
 		private val changedObjects = mutableSetOf<VoidGeom>()
 		private val observers = mutableMapOf<VoidGeom, () -> Unit>()
 
-		fun add(geom: VoidGeom) {
-			addChunk(
-				(geom.drawable.aabb.first / CHUNK_SIZE).floor(),
-				Object(geom).apply { objects[geom] = this },
+		/**
+		 * Simple geometric centroid; computation is easier than AABB center
+		 */
+		private fun VoidGeom.centroid() = drawables.run {
+			require(isNotEmpty())
+			ImmVec3d(
+				sumOf { it.aabb.first.x } / size,
+				sumOf { it.aabb.first.y } / size,
+				sumOf { it.aabb.first.z } / size,
 			)
-			observers[geom] = {
-				changedObjects.add(geom)
-				Unit
-			}.apply { geom.drawable.observeAabb(this) }
+		}
+
+		fun add(geom: VoidGeom) {
+			Object(geom).apply {
+				objects[geom] = this
+				addChunk((geom.centroid() / CHUNK_SIZE).floor(), this,)
+				observers[geom] = {
+					changedObjects.add(geom)
+					Unit
+				}.apply { observeAabb(this) }
+			}
 		}
 
 		private fun addChunk(chunk: Vec3i, obj: Object) {
@@ -1357,15 +1434,17 @@ internal class GameplayScreen(
 		}
 
 		fun remove(geom: VoidGeom) {
-			removeFromChunk(objects.remove(geom)!!)
+			objects.remove(geom)!!.apply {
+				removeFromChunk(this)
+				unobserveAabb(observers.remove(geom)!!)
+			}
 			changedObjects.remove(geom)
-			geom.drawable.unobserveAabb(observers.remove(geom)!!)
 		}
 
 		fun update() {
 			changedObjects.forEach {
 				val obj = objects[it]!!
-				val cur = (it.drawable.aabb.first / CHUNK_SIZE).floor()
+				val cur = (obj.aabb.center() / CHUNK_SIZE).floor()
 				if (objectChunks[obj]!! != cur) {
 					removeFromChunk(obj)
 					addChunk(cur, obj)
@@ -1459,9 +1538,10 @@ internal class GameplayScreen(
 					ImmVec3d(it.x, it.y, it.z + it.y * tan(PI / 6) * 2)
 				}
 				val cuboid = Cuboid(center - dims / 2, Dimension3D(dims.x, dims.y, dims.z))
-				chunkManager.simpleFilterRangeObjects(Octree.Range(cuboid.pt, cuboid.max())).toList().sortedWith(
-					compareBy<World.VoidGeom> { it.pos.y }.thenBy { it.pos.z }
-				).forEach { it.render() }
+				chunkManager.simpleFilterRangeObjects(Octree.Range(cuboid.pt, cuboid.max()))
+					.map { it.pos to it } // Get copies to avoid racing condition
+					.toSortedSet(compareBy<Pair<Vec3d, World.VoidGeom>> { it.first.y }.thenBy { it.first.z })
+					.forEach { it.second.render() }
 			}
 
 			tpsText.setText("${core.tps} FPS")

@@ -194,6 +194,13 @@ internal object Physics {
 	external fun setPhyGeomPlaceableBits(handle: ULong, bits: UIntArray)
 
 	/**
+	 * @param handle PhyRawGeomPlaceable pointer; it must have been added to a PhyBody
+	 * @param data [x, y, z]
+	 */
+	@JvmName("setPhyRawGeomPlaceableOffsetPos")
+	external fun setPhyRawGeomPlaceableOffsetPos(handle: ULong, data: DoubleArray)
+
+	/**
 	 * @param handle PhyRawGeomPlaceable pointer
 	 * @param pos x, y, z position
 	 */

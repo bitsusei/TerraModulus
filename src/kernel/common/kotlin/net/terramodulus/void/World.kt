@@ -11,6 +11,7 @@ import net.terramodulus.engine.PhyBody
 import net.terramodulus.engine.PhyEnv
 import net.terramodulus.engine.PhyGeom
 import net.terramodulus.engine.PhyGeomBox
+import net.terramodulus.engine.common.toArray
 import net.terramodulus.util.logging.logger
 import java.io.Closeable
 import kotlin.properties.Delegates
@@ -66,13 +67,24 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 					commander.wrapCube(createCube(pos.x, pos.y, pos.z), pos)
 			}
 
-			override fun genChar(commander: Ymir, pos: Vec3d) {
+			override fun genChar(commander: Ymir, pos: Vec3d, descriptors: Collection<CharDescriptor>) {
+				val entries = mutableListOf<CharDescriptor.Entry>()
 				objects[ObjId.randomUnique(objects)] = commander.wrapChar(
 					world.newBody(PhyBody.Mass.SphereTotal(1.0, .5)).apply {
-						addGeom(createGeomSphere(.5))
+						descriptors.forEach {
+							when (it.variation) {
+								is CharDescriptor.Variation.Cube -> createWorldGeomCube(it.variation.length)
+								is CharDescriptor.Variation.Sphere -> createGeomSphere(it.variation.radius)
+							}.apply {
+								addGeom(this)
+								setOffsetPosition(it.offset.toArray())
+								entries.add(CharDescriptor.Entry(it.offset, it.variation, this))
+							}
+						}
 						this.pos = pos
 					},
 					pos,
+					entries,
 				)
 			}
 
@@ -140,7 +152,7 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 	interface Ymir {
 		fun wrapCube(phyGeom: PhyGeom, pos: Vec3d): VoidGeom
 
-		fun wrapChar(phyBody: PhyBody, pos: Vec3d): VoidGeom
+		fun wrapChar(phyBody: PhyBody, pos: Vec3d, descriptors: Collection<CharDescriptor.Entry>): VoidGeom
 
 		fun wrapProject(phyBody: PhyBody, pos: Vec3d): InteractiveVoidGeom
 
@@ -157,9 +169,18 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 	interface YmirAgent {
 		fun genCube(commander: Ymir, pos: Vec3d)
 
-		fun genChar(commander: Ymir, pos: Vec3d)
+		fun genChar(commander: Ymir, pos: Vec3d, descriptors: Collection<CharDescriptor>)
 
 		fun genProject(commander: Ymir, pos: Vec3d, kinematic: Boolean): InteractiveVoidGeom
+	}
+
+	data class CharDescriptor(val offset: Vec3d, val variation: Variation) {
+		sealed class Variation {
+			data class Cube(val length: Double) : Variation()
+			data class Sphere(val radius: Double) : Variation()
+		}
+
+		data class Entry(val offset: Vec3d, val variation: Variation, val geom: PhyGeom)
 	}
 
 	/** A wrapper containing rendering context, with a geom of dimensions of 1mx1mx1m */
@@ -188,10 +209,12 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 		return cube
 	}
 
-	internal fun createGeomBox(x: Double, y: Double, z: Double) = PhyGeomBox.newSole(doubleArrayOf(x, y, z)).apply {
+	private fun createGeomBox(x: Double, y: Double, z: Double) = PhyGeomBox.newSole(doubleArrayOf(x, y, z)).apply {
 		staticSpace.addGeom(this)
 	}
-	internal fun createGeomSphere(radius: Double) = world.createGeomSphere(radius)
+	private fun createGeomSphere(radius: Double) = world.createGeomSphere(radius)
+	private fun createWorldGeomBox(x: Double, y: Double, z: Double) = world.createGeomBox(doubleArrayOf(x, y, z))
+	private fun createWorldGeomCube(length: Double) = createWorldGeomBox(length, length, length)
 
 	fun tick() = world.tick()
 

@@ -5,6 +5,7 @@
 
 package net.terramodulus.engine
 
+import net.terramodulus.engine.ferricia.Physics.getPhyRawGeomPlaceablePosition
 import net.terramodulus.engine.ferricia.Physics.newSolePhyGeomBox
 import net.terramodulus.engine.ferricia.Physics.newSpacePhyGeomBox
 import net.terramodulus.engine.ferricia.Physics.newWorldPhyGeomBox
@@ -12,6 +13,7 @@ import net.terramodulus.engine.ferricia.Physics.newWorldPhyGeomPlane
 import net.terramodulus.engine.ferricia.Physics.newWorldPhyGeomSphere
 import net.terramodulus.engine.ferricia.Physics.setPhyGeomNonPlaceableBits
 import net.terramodulus.engine.ferricia.Physics.setPhyGeomPlaceableBits
+import net.terramodulus.engine.ferricia.Physics.setPhyRawGeomPlaceableOffsetPos
 import net.terramodulus.engine.ferricia.Physics.setPhyRawGeomPlaceablePosition
 
 sealed class PhyGeom(internal val handle: ULong) {
@@ -23,6 +25,16 @@ sealed class PlaceablePhyGeom(handle: ULong) : PhyGeom(handle) {
 	fun setPosition(pos: DoubleArray) = setPhyRawGeomPlaceablePosition(handle, pos)
 	@OptIn(ExperimentalUnsignedTypes::class)
 	final override fun setBits(category: UInt, collide: UInt) = setPhyGeomPlaceableBits(handle, uintArrayOf(category, collide))
+
+	/**
+	 * Must have been attached to a PhyBody
+	 */
+	fun setOffsetPosition(pos: DoubleArray) = setPhyRawGeomPlaceableOffsetPos(handle, pos)
+
+	/**
+	 * Position with offset; must have been attached to a PhyBody
+	 */
+	fun getPosition() = getPhyRawGeomPlaceablePosition(handle)
 }
 
 class PhyGeomBox internal constructor(handle: ULong) : PlaceablePhyGeom(handle) {
