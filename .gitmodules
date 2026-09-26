@@ -1,3 +1,6 @@
 [submodule "ferricia"]
 	path = ferricia
 	url = https://github.com/bitsusei/TerraModulus-Ferricia-Engine
+[submodule "vector-math"]
+	path = vector-math
+	url = https://github.com/bitsusei/kotlin-vector-math

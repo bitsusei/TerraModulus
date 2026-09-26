@@ -5,38 +5,89 @@
 
 package net.terramodulus.engine
 
-import net.terramodulus.engine.ferricia.Gwr.newMeshGeomCube
-import net.terramodulus.engine.ferricia.Gwr.newMeshGeomSphere
+import com.cout970.math.quaternion.Quatd
+import com.cout970.math.vec3.ImmVec3d
+import com.cout970.math.vec3.Vec3d
+import com.cout970.math.vec3.times
+import com.cout970.math.vec4.Vec4i
+import net.terramodulus.engine.ferricia.Gwr.newDrawableWorldObj
 import net.terramodulus.engine.ferricia.Gwr.updateWorldObjModel
 
-sealed class WorldObjDrawable(internal val handle: ULong, private var pos: Vec3D, private var scale: Vec3D, private var rot: Quat) {
-	fun updateModel(px: Double, py: Double, pz: Double, sx: Double, sy: Double, sz: Double, w: Double, i: Double, j: Double, k: Double) =
-		updateWorldObjModel(handle, doubleArrayOf(px, py, pz, w, i, j, k, sx, sy, sz))
-	fun updateModel(pos: Vec3D, scale: Vec3D, rot: Quat) =
-		updateModel(pos.x, pos.y, pos.z, scale.x, scale.y, scale.z, rot.w, rot.i, rot.j, rot.k)
+class WorldObjDrawable(
+	private val geom: WorldObjGeom,
+	rgba: Vec4i,
+	private var pos: Vec3d,
+	private var scale: Vec3d,
+	private var rot: Quatd,
+) {
+	internal val handle = newDrawableWorldObj(geom.wideHandle, rgba.toArray())
+
+	/**
+	 * Point of center and total dimensions
+	 */
+	lateinit var aabb: Pair<Vec3d, Vec3d>
+
+	private val observers = mutableSetOf<() -> Unit>()
+
+	fun observeAabb(observer: () -> Unit) {
+		observers.add(observer)
+	}
+
+	fun unobserveAabb(observer: () -> Unit) {
+		assert(observers.remove(observer))
+	}
+
+	fun updateModel(pos: Vec3d, scale: Vec3d, rot: Quatd) {
+		aabb = pos to (geom.geomDims * scale)
+		observers.forEach { it() }
+		updateWorldObjModel(handle, doubleArrayOf(
+			pos.x,
+			pos.y,
+			pos.z,
+			rot.w,
+			rot.x,
+			rot.y,
+			rot.z,
+			scale.x,
+			scale.y,
+			scale.z,
+		))
+	}
 
 	init {
 		updateModel(pos, scale, rot)
 	}
 
-	fun setPos(value: Vec3D) {
+	fun setPos(value: Vec3d) {
 		pos = value
 		updateModel(pos, scale, rot)
 	}
 
-	fun setScale(value: Vec3D) {
+	fun setScale(value: Vec3d) {
 		scale = value
 		updateModel(pos, scale, rot)
 	}
 
-	fun setRot(value: Quat) {
+	fun setRot(value: Quatd) {
 		rot = value
 		updateModel(pos, scale, rot)
 	}
 }
 
-class SimpleMesh3dGeomCube(width: Float, rgba: Rgba, pos: Vec3D, scale: Vec3D, rot: Quat) :
-	WorldObjDrawable(newMeshGeomCube(width, rgba.toArray()), pos, scale, rot)
+@OptIn(ExperimentalUnsignedTypes::class)
+sealed class WorldObjGeom(handles: ULongArray) {
+	protected val handle = handles[0]
+	internal val wideHandle = handles[1]
 
-class SimpleMesh3dGeomSphere(radius: Float, rgba: Rgba, pos: Vec3D, scale: Vec3D, rot: Quat) :
-	WorldObjDrawable(newMeshGeomSphere(radius, rgba.toArray()), pos, scale, rot)
+	internal abstract val geomDims: Vec3d
+}
+
+@OptIn(ExperimentalUnsignedTypes::class)
+class SimpleMesh3dGeomCube(canvas: Canvas, width: Float) : WorldObjGeom(canvas.newMeshGeomCube(width)) {
+	override val geomDims = ImmVec3d(width.toDouble())
+}
+
+@OptIn(ExperimentalUnsignedTypes::class)
+class SimpleMesh3dGeomSphere(canvas: Canvas, radius: Float) : WorldObjGeom(canvas.newMeshGeomSphere(radius)) {
+	override val geomDims = ImmVec3d(radius.toDouble() * 2)
+}

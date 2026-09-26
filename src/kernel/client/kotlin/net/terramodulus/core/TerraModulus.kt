@@ -6,23 +6,34 @@
 package net.terramodulus.core
 
 import net.terramodulus.common.core.AbstractTerraModulus
-import net.terramodulus.mui.GuiManager
+import net.terramodulus.mui.MuiManager
+import net.terramodulus.mui.gui.GuiManager
 import net.terramodulus.void.World
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 class TerraModulus internal constructor() : AbstractTerraModulus() {
-	private val guiManager = GuiManager(this)
+	private val muiManager = MuiManager(this)
 	internal var world: World? = null
 
-	override var tps: Int
-		get() = TODO("Not yet implemented")
-		set(value) {}
+	var tps = 0
+		private set
 
 	override fun run() {
-		guiManager.showWindow()
+		muiManager.showWindow()
+		val timeSource = TimeSource.Monotonic
+		var lastTick = timeSource.markNow()
+		var ticks = 0
 		while (true) {
-			guiManager.updateCanvas()
-// 			guiManager.updateScreens()
-			Thread.sleep(1)
+			muiManager.update()
+			ticks++
+			val now = timeSource.markNow()
+			if (now - lastTick >= 1.seconds) {
+				lastTick = now
+				tps = ticks
+				ticks = 0
+			}
+			Thread.sleep(0)
 		}
 	}
 

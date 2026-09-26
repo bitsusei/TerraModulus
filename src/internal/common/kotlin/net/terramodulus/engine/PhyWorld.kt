@@ -5,8 +5,12 @@
 
 package net.terramodulus.engine
 
+import com.cout970.math.vec3.Vec3d
+import net.terramodulus.engine.common.ZeroImmVec3d
+import net.terramodulus.engine.common.toArray
 import net.terramodulus.engine.ferricia.Physics.newPhyCollisionManager
 import net.terramodulus.engine.ferricia.Physics.newPhyWorld
+import net.terramodulus.engine.ferricia.Physics.newPhyWorldStaticSpaceSet
 import net.terramodulus.engine.ferricia.Physics.omitPhyCollisionManagerSpace
 import net.terramodulus.engine.ferricia.Physics.processPhyCollisionManager
 import net.terramodulus.engine.ferricia.Physics.setPhyCollisionManagerFriction
@@ -18,7 +22,7 @@ class PhyWorld internal constructor(envHandle: ULong) {
 	private val handle = newPhyWorld(envHandle)
 	private val cmHandle = newPhyCollisionManager()
 
-	var gravity: Vec3D by Delegates.observable(Vec3D.ZERO) { _, _, newValue ->
+	var gravity: Vec3d by Delegates.observable(ZeroImmVec3d) { _, _, newValue ->
 		setPhyWorldGravity(handle, newValue.toArray())
 	}
 
@@ -27,10 +31,14 @@ class PhyWorld internal constructor(envHandle: ULong) {
 	fun createGeomPlane(params: DoubleArray) = PhyGeomPlane(handle, params)
 
 	fun newSpace() = PhySpace(handle)
-	fun newBody(mass: PhyBody.Mass) = PhyBody(handle, mass)
+	fun newBody(mass: PhyBody.Mass) = PhyBody.withMass(handle, mass)
+	fun newKinematicBody() = PhyBody.asKinematic(handle)
 
 	fun setFriction(friction: Double) = setPhyCollisionManagerFriction(handle, friction)
 	fun omitSpace(space: PhySpace) = omitPhyCollisionManagerSpace(cmHandle, space.handle)
+
+	fun newStaticSpaceSet() = StaticSpaceSet(newPhyWorldStaticSpaceSet(handle))
+	fun updateStaticSpaceSet(set: StaticSpaceSet) = set.updateIgnored(cmHandle)
 
 	fun tick() {
 		tickPhyWorld(handle, cmHandle)

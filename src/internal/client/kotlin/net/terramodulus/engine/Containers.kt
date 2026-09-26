@@ -5,10 +5,9 @@
 
 package net.terramodulus.engine
 
-data class Rgba(val r: Int, val g: Int, val b: Int, val a: Int) {
-	fun toArray() = intArrayOf(r, g, b, a)
-}
+import com.cout970.math.vec2.Vec2f
+import com.cout970.math.vec4.Vec4i
 
-data class Vec3F(val x: Float, val y: Float, val z: Float) {
-	fun toArray() = floatArrayOf(x, y, z)
-}
+fun Vec4i.toArray() = intArrayOf(x, y, z, w)
+
+fun Vec2f.toArray() = floatArrayOf(x, y)
