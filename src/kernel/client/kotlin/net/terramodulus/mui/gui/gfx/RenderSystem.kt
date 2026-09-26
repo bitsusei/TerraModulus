@@ -55,6 +55,8 @@ class RenderSystem internal constructor(private val core: TerraModulus, private 
 		fun newTextRenderingContext(fontSize: Float, lineHeight: Float, color: Vec4i): TextRenderingContext
 
 		fun <R> withScissor(pos: Vec2i, size: Dimension2I, block: () -> R): R
+
+		fun <R> withDepthTest(block: () -> R): R
 	}
 
 	inner class ScissorSession internal constructor(pos: Vec2i, size: Dimension2I) : AutoCloseable {
@@ -64,6 +66,16 @@ class RenderSystem internal constructor(private val core: TerraModulus, private 
 
 		override fun close() {
 			canvas.disableScissor()
+		}
+	}
+
+	inner class DepthTestSession internal constructor() : AutoCloseable {
+		init {
+			canvas.enableDepthTest()
+		}
+
+		override fun close() {
+			canvas.disableDepthTest()
 		}
 	}
 
@@ -89,6 +101,8 @@ class RenderSystem internal constructor(private val core: TerraModulus, private 
 
 		override fun <R> withScissor(pos: Vec2i, size: Dimension2I, block: () -> R) =
 			ScissorSession(pos, size).use { _ -> block() }
+
+		override fun <R> withDepthTest(block: () -> R) = DepthTestSession().use { _ -> block() }
 	}
 
 	internal fun newGameplayScreen(options: WorldCreateScreen.WorldOptions, pos: Vec3f) =

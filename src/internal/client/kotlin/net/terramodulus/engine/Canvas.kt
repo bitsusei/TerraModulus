@@ -11,10 +11,12 @@ import net.terramodulus.engine.ferricia.Gwr.newMeshGeomCube
 import net.terramodulus.engine.ferricia.Gwr.newMeshGeomSphere
 import net.terramodulus.engine.ferricia.Mui
 import net.terramodulus.engine.ferricia.Mui.clearCanvas
+import net.terramodulus.engine.ferricia.Mui.disableDepthTest
 import net.terramodulus.engine.ferricia.Mui.disableScissor
 import net.terramodulus.engine.ferricia.Mui.drawGuiGeo
 import net.terramodulus.engine.ferricia.Mui.drawGuiTex
 import net.terramodulus.engine.ferricia.Mui.dropCanvasHandle
+import net.terramodulus.engine.ferricia.Mui.enableDepthTest
 import net.terramodulus.engine.ferricia.Mui.enableScissor
 import net.terramodulus.engine.ferricia.Mui.geoShaders
 import net.terramodulus.engine.ferricia.Mui.getGLVersion
@@ -42,6 +44,10 @@ class Canvas internal constructor(private val windowHandle: ULong) : Closeable {
 	fun clear() = clearCanvas(windowHandle)
 
 	fun setClearColor(r: Float, g: Float, b: Float, a: Float) = setCanvasClearColor(windowHandle, r, g, b, a)
+
+	fun enableDepthTest() = enableDepthTest(windowHandle)
+
+	fun disableDepthTest() = disableDepthTest(windowHandle)
 
 	internal fun resizeGLViewport() = if (camera3D == null) {
 		Mui.resizeGLViewport(windowHandle, handle)

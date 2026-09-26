@@ -46,6 +46,15 @@ internal object Gwr {
 	external fun setCameraZoomLevel(cameraHandle: ULong, data: Float)
 
 	/**
+	 * @param cameraHandle Camera3D handle pointer
+	 * @param data1 ceiling level and floor level
+	 * @param data2 near and far thresholds
+	 * @param data3 `[r, b, g]`; fog color
+	 */
+	@JvmName("setCameraSpace")
+	external fun setCameraSpace(cameraHandle: ULong, data1: DoubleArray, data2: FloatArray, data3: IntArray)
+
+	/**
 	 * @param windowHandle window handle pointer
 	 * @param width cube's width, in `(0,2]`
 	 * @return SimpleMesh3dGeom handle pointer and Render3dPrimitive (wide) handle pointer

@@ -41,6 +41,18 @@ internal object Mui {
 	external fun getGLVersion(windowHandle: ULong): String
 
 	/**
+	 * @param windowHandle window handle pointer
+	 */
+	@JvmName("enableDepthTest")
+	external fun enableDepthTest(windowHandle: ULong)
+
+	/**
+	 * @param windowHandle window handle pointer
+	 */
+	@JvmName("disableDepthTest")
+	external fun disableDepthTest(windowHandle: ULong)
+
+	/**
 	 * @param sdlHandle SDL handle pointer
 	 * @return `[x, y]` in window coordinates
 	 */

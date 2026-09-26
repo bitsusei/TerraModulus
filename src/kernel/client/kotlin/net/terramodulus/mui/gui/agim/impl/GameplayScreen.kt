@@ -12,6 +12,7 @@ import com.cout970.math.vec2.minus
 import com.cout970.math.vec2.normalized
 import com.cout970.math.vec2.times
 import com.cout970.math.vec3.ImmVec3d
+import com.cout970.math.vec3.ImmVec3i
 import com.cout970.math.vec3.Vec3d
 import com.cout970.math.vec3.Vec3f
 import com.cout970.math.vec3.Vec3i
@@ -130,6 +131,7 @@ internal class GameplayScreen(
 	private val canvasHandle = renderSystemHandle.canvasHandle
 
 	private val chunkManager = ChunkManager()
+	private val chunkManagerLock = Any()
 
 	private lateinit var player: PlayerVoidGeom
 	override val layout = CompositeLayout(this)
@@ -150,6 +152,13 @@ internal class GameplayScreen(
 
 	init {
 		renderSystemHandle.setBackgroundColor(0F, 0F, 0F, 0F)
+		run {
+			val threshold = .75
+			val mid = (10.0 + 3.0) / 2.0
+			val near = ((3 * threshold + (mid - 3)) / mid).toFloat()
+			val far = ((10 * threshold + (mid - 10)) / mid).toFloat()
+			camera.setCameraSpace(3.0, 10.0, near, far, ImmVec3i(0))
+		}
 		managerHandle.open { p1: ScreenManager.Handle, p2: AsdHandle.Container, p3: RenderSystem.Handle ->
 			// In production, this screen should be placed separately.
 			WorldInitScreen(p1, p2, p3).apply {
@@ -754,7 +763,7 @@ internal class GameplayScreen(
 					}
 					this@GameplayScreen.addListener(ScreenEvent.Update::class.java) {
 						update0(it.muiIoI)
-						chunkManager.update()
+						synchronized(chunkManagerLock) { chunkManager.update() }
 					}
 				}
 			}
@@ -957,7 +966,7 @@ internal class GameplayScreen(
 			EnvVoidGeom(phyGeom, setOf(
 				WorldObjDrawable(cubeGeom, randomColor(), pos, STD_SCALE, IDENT_ROT),
 			), pos).apply {
-				chunkManager.add(this)
+				synchronized(chunkManagerLock) { chunkManager.add(this) }
 			}
 
 		private fun randomColor() = when (Random.nextInt(3)) {
@@ -988,7 +997,7 @@ internal class GameplayScreen(
 			}).apply {
 				player = this
 				synchronized(interactiveGeomsLock) { interactiveGeoms.add(this) }
-				chunkManager.add(this)
+				synchronized(chunkManagerLock) { chunkManager.add(this) }
 			}
 
 		override fun wrapProject(phyBody: PhyBody, pos: Vec3d) =
@@ -996,7 +1005,7 @@ internal class GameplayScreen(
 				WorldObjDrawable(sphereGeom, WHITE, pos, STD_SCALE / 2, IDENT_ROT),
 			)).apply {
 				synchronized(interactiveGeomsLock) { interactiveGeoms.add(this) }
-				chunkManager.add(this)
+				synchronized(chunkManagerLock) { chunkManager.add(this) }
 			}
 
 		override fun generateWorld(progressBar: World.ProgressBar) {
@@ -1504,10 +1513,8 @@ internal class GameplayScreen(
 		}
 
 		override fun render(renderSystem: RenderSystem) {
-			if (core.world != null) {
+			if (core.world != null) renderSystem.handle.withDepthTest {
 				val range = camera.getSpace() * 1.1 // with little tolerance
-				val ceil = 3
-				val floor = 10
 // 				object : Octree.GeometryRange3d, Closeable {
 // 					private val space = CameraSpace(
 // 						player.pos.toMutVec3d().apply { y -= floor - (ceil + floor).toDouble() / 2 },
@@ -1532,16 +1539,19 @@ internal class GameplayScreen(
 // 						).forEach { it.render() }
 // 					}
 // 				}
-				val center = player.pos.toMutVec3d().apply { y -= floor - (ceil + floor).toDouble() / 2 }
-				val dims = ImmVec3d(range.x, (ceil + floor).toDouble(), range.y).let {
+				val center = player.pos.toMutVec3d().apply {
+					y -= camera.floorLevel - (camera.ceilLevel + camera.floorLevel) / 2
+				}
+				val dims = ImmVec3d(range.x, (camera.ceilLevel + camera.floorLevel), range.y).let {
 					// CameraSpace but its bounding box
 					ImmVec3d(it.x, it.y, it.z + it.y * tan(PI / 6) * 2)
 				}
 				val cuboid = Cuboid(center - dims / 2, Dimension3D(dims.x, dims.y, dims.z))
-				chunkManager.simpleFilterRangeObjects(Octree.Range(cuboid.pt, cuboid.max()))
-					.map { it.pos to it } // Get copies to avoid racing condition
-					.toSortedSet(compareBy<Pair<Vec3d, World.VoidGeom>> { it.first.y }.thenBy { it.first.z })
-					.forEach { it.second.render() }
+				synchronized(chunkManagerLock) {
+					chunkManager.simpleFilterRangeObjects(Octree.Range(cuboid.pt, cuboid.max()))
+						.map { it.pos to it } // Get copies to avoid racing condition
+						.toSortedSet(compareBy<Pair<Vec3d, World.VoidGeom>> { it.first.y }.thenBy { it.first.z })
+				}.forEach { it.second.render() }
 			}
 
 			tpsText.setText("${core.tps} FPS")
