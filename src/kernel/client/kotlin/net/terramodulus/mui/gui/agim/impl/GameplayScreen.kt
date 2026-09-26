@@ -1550,7 +1550,8 @@ internal class GameplayScreen(
 				synchronized(chunkManagerLock) {
 					chunkManager.simpleFilterRangeObjects(Octree.Range(cuboid.pt, cuboid.max()))
 						.map { it.pos to it } // Get copies to avoid racing condition
-						.toSortedSet(compareBy<Pair<Vec3d, World.VoidGeom>> { it.first.y }.thenBy { it.first.z })
+						.sortedWith(compareBy<Pair<Vec3d, World.VoidGeom>> { it.first.y }.thenBy { it.first.z })
+						.toList()
 				}.forEach { it.second.render() }
 			}
 
