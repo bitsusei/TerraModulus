@@ -6,20 +6,30 @@
 package net.terramodulus.engine
 
 import com.cout970.math.vec2.ImmVec2d
+import com.cout970.math.vec3.ImmVec3d
+import com.cout970.math.vec3.Vec3d
 import com.cout970.math.vec3.Vec3i
 import net.terramodulus.engine.common.toArray
+import net.terramodulus.engine.ferricia.Gwr.dropLightSpace
 import net.terramodulus.engine.ferricia.Gwr.getCameraSpace
+import net.terramodulus.engine.ferricia.Gwr.getLightSpaceAabb
 import net.terramodulus.engine.ferricia.Gwr.newCamera
+import net.terramodulus.engine.ferricia.Gwr.newLightSpace
 import net.terramodulus.engine.ferricia.Gwr.refreshCameraPos
 import net.terramodulus.engine.ferricia.Gwr.setCameraSpace
 import net.terramodulus.engine.ferricia.Gwr.setCameraZoomLevel
 import java.io.Closeable
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 import kotlin.properties.Delegates
 
 class Camera3D internal constructor(private val canvas: Canvas, pos: FloatArray) : Closeable {
 	internal val handle = newCamera(canvas.handle, pos)
 
 	fun loadGeoShaders(vsh: String, fsh: String) = canvas.load3DGeoShaders(vsh, fsh)
+
+	fun loadSdwShaders(vsh: String, fsh: String) = canvas.load3DSdwShaders(vsh, fsh)
 
 	fun getSpace() = getCameraSpace(handle).let { ImmVec2d(it[0], it[1]) }
 
@@ -53,6 +63,32 @@ class Camera3D internal constructor(private val canvas: Canvas, pos: FloatArray)
 
 	fun renderGwrGeo(drawable: WorldObjDrawable, programHandle: ULong) =
 		canvas.drawGwrObj(this, drawable, programHandle)
+
+	fun renderGwrShadow(drawable: WorldObjDrawable, space: LightSpace, programHandle: ULong) =
+		canvas.drawGwrShadow(this, drawable, space, programHandle)
+
+	class LightSpace(min: Vec3d, max: Vec3d) : AutoCloseable {
+		internal val handle = newLightSpace(doubleArrayOf(min.x, min.y, min.z, max.x, max.y, max.z))
+
+		val aabb get() = getLightSpaceAabb(handle).let {
+			ImmVec3d(it[0], it[1], it[2]) to ImmVec3d(it[3], it[4], it[5])
+		}
+
+		override fun close() {
+			dropLightSpace(handle)
+		}
+	}
+
+	@OptIn(ExperimentalContracts::class)
+	fun withShadowRendering(block: () -> Unit) {
+		contract {
+			callsInPlace(block, InvocationKind.EXACTLY_ONCE)
+		}
+
+		canvas.startShadowRendering(this)
+		block()
+		canvas.endShadowRendering(this)
+	}
 
 	override fun close() {
 		canvas.camera3D = null

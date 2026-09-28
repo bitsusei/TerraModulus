@@ -185,8 +185,6 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 
 	/** A wrapper containing rendering context, with a geom of dimensions of 1mx1mx1m */
 	interface VoidGeom {
-		fun render()
-
 		val pos: Vec3d
 
 		val phyGeoms: Sequence<PhyGeom>

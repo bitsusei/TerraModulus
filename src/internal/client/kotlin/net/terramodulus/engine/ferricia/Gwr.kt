@@ -17,6 +17,15 @@ internal object Gwr {
 	external fun geoShaders(windowHandle: ULong, vsh: String, fsh: String): ULong
 
 	/**
+	 * @param windowHandle window handle pointer
+	 * @param vsh source code of vector shader
+	 * @param fsh source code of fragment shader
+	 * @return GWR Sdw Shader Program handle pointer
+	 */
+	@JvmName("sdwShaders")
+	external fun sdwShaders(windowHandle: ULong, vsh: String, fsh: String): ULong
+
+	/**
 	 * @param canvasHandle Canvas handle pointer
 	 * @param data `[x, y, z]`
 	 * @return Camera3D handle pointer
@@ -94,4 +103,56 @@ internal object Gwr {
 	 */
 	@JvmName("drawGwrObj")
 	external fun drawGwrObj(windowHandle: ULong, canvasHandle: ULong, cameraHandle: ULong, objHandle: ULong, programHandle: ULong)
+
+	/**
+	 * @param data AABB min and max corners in x, y, z
+	 * @return LightSpace handle pointer
+	 */
+	@JvmName("newLightSpace")
+	external fun newLightSpace(data: DoubleArray): ULong
+
+	/**
+	 * @param spaceHandle LightSpace handle pointer
+	 * @return AABB min and max corners in x, y, z
+	 */
+	@JvmName("getLightSpaceAabb")
+	external fun getLightSpaceAabb(spaceHandle: ULong): DoubleArray
+
+	/**
+	 * @param spaceHandle LightSpace handle pointer
+	 */
+	@JvmName("dropLightSpace")
+	external fun dropLightSpace(spaceHandle: ULong)
+
+	/**
+	 * @param windowHandle window handle pointer
+	 * @param cameraHandle Camera3D handle pointer
+	 */
+	@JvmName("startShadowRendering")
+	external fun startShadowRendering(windowHandle: ULong, cameraHandle: ULong)
+
+	/**
+	 * @param windowHandle window handle pointer
+	 * @param cameraHandle Camera3D handle pointer
+	 */
+	@JvmName("endShadowRendering")
+	external fun endShadowRendering(windowHandle: ULong, cameraHandle: ULong)
+
+	/**
+	 * @param windowHandle window handle pointer
+	 * @param canvasHandle Canvas handle pointer
+	 * @param cameraHandle Camera3D handle pointer
+	 * @param objHandle DrawableWorldObj handle pointer
+	 * @param spaceHandle LightSpace handle pointer
+	 * @param programHandle GWR Shader Program handle pointer
+	 */
+	@JvmName("drawGwrShadow")
+	external fun drawGwrShadow(
+		windowHandle: ULong,
+		canvasHandle: ULong,
+		cameraHandle: ULong,
+		objHandle: ULong,
+		spaceHandle: ULong,
+		programHandle: ULong,
+	)
 }

@@ -7,8 +7,11 @@ package net.terramodulus.engine
 
 import net.terramodulus.engine.ferricia.Gwr
 import net.terramodulus.engine.ferricia.Gwr.drawGwrObj
+import net.terramodulus.engine.ferricia.Gwr.drawGwrShadow
+import net.terramodulus.engine.ferricia.Gwr.endShadowRendering
 import net.terramodulus.engine.ferricia.Gwr.newMeshGeomCube
 import net.terramodulus.engine.ferricia.Gwr.newMeshGeomSphere
+import net.terramodulus.engine.ferricia.Gwr.startShadowRendering
 import net.terramodulus.engine.ferricia.Mui
 import net.terramodulus.engine.ferricia.Mui.clearCanvas
 import net.terramodulus.engine.ferricia.Mui.disableDepthTest
@@ -68,6 +71,8 @@ class Canvas internal constructor(private val windowHandle: ULong) : Closeable {
 
 	fun load3DGeoShaders(vsh: String, fsh: String) = Gwr.geoShaders(windowHandle, vsh, fsh)
 
+	fun load3DSdwShaders(vsh: String, fsh: String) = Gwr.sdwShaders(windowHandle, vsh, fsh)
+
 	fun loadTexShaders(vsh: String, fsh: String) = texShaders(windowHandle, vsh, fsh)
 
 	fun loadTxtShaders(vsh: String, fsh: String) = newTxtProgram(windowHandle, vsh, fsh)
@@ -96,6 +101,17 @@ class Canvas internal constructor(private val windowHandle: ULong) : Closeable {
 
 	internal fun drawGwrObj(camera3D: Camera3D, drawable: WorldObjDrawable, programHandle: ULong) =
 		drawGwrObj(windowHandle, handle, camera3D.handle, drawable.handle, programHandle)
+
+	internal fun drawGwrShadow(
+		camera3D: Camera3D,
+		drawable: WorldObjDrawable,
+		space: Camera3D.LightSpace,
+		programHandle: ULong,
+	) = drawGwrShadow(windowHandle, handle, camera3D.handle, drawable.handle, space.handle, programHandle)
+
+	internal fun startShadowRendering(camera: Camera3D) = startShadowRendering(windowHandle, camera.handle)
+
+	internal fun endShadowRendering(camera: Camera3D) = endShadowRendering(windowHandle, camera.handle)
 
 	fun enableScissor(x: Int, y: Int, w: UInt, h: UInt) = enableScissor(handle, intArrayOf(x, y, w.toInt(), h.toInt()))
 
