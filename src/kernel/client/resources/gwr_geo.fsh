@@ -18,8 +18,7 @@ float calculateShadow() {
     vec3 projCoords = lightPos.xyz / lightPos.w;
     projCoords = projCoords * 0.5 + 0.5;
     if (projCoords.z > 1.0 || projCoords.z < 0.0) return 0.0;
-    float currentDepth = projCoords.z;
-    float shadow = shadow2D(shadowMap, vec3(projCoords.xy, currentDepth)).r;
+    float shadow = shadow2D(shadowMap, projCoords).r;
     return 1.0 - shadow;
 }
 

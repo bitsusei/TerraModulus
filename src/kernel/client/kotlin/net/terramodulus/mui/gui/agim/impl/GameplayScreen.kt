@@ -1552,8 +1552,8 @@ internal class GameplayScreen(
 						.map { it.pos to it } // Get copies to avoid racing condition
 						.sortedWith(compareBy<Pair<Vec3d, VoidGeom>> { it.first.y }.thenBy { it.first.z })
 						.toList()
-					camera.withShadowRendering {
-						Camera3D.LightSpace(cuboid.pt, cuboid.max()).use { space ->
+					Camera3D.LightSpace(cuboid.pt, cuboid.max()).use { space ->
+						camera.withShadowRendering {
 							val aabb = space.aabb
 							chunkManager.simpleFilterRangeObjects(Octree.Range(aabb.first, aabb.second))
 								.map { it.pos to it } // Get copies to avoid racing condition
@@ -1561,8 +1561,8 @@ internal class GameplayScreen(
 								.toList()
 								.forEach { renderGwrSdw(it.second, space) }
 						}
+						geoms.forEach { renderGwrGeo(it.second, space) }
 					}
-					geoms.forEach { renderGwrGeo(it.second) }
 				}
 			}
 
@@ -1571,7 +1571,8 @@ internal class GameplayScreen(
 		}
 	}
 
-	private fun renderGwrGeo(geom: VoidGeom) = geom.drawables.forEach { camera.renderGwrGeo(it, geoShaders) }
+	private fun renderGwrGeo(geom: VoidGeom, space: Camera3D.LightSpace) =
+		geom.drawables.forEach { camera.renderGwrGeo(it, space, geoShaders) }
 
 	private fun renderGwrSdw(geom: VoidGeom, space: Camera3D.LightSpace) =
 		geom.drawables.forEach { camera.renderGwrShadow(it, space, sdwShaders) }

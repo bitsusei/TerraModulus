@@ -61,8 +61,8 @@ class Camera3D internal constructor(private val canvas: Canvas, pos: FloatArray)
 		)
 	}
 
-	fun renderGwrGeo(drawable: WorldObjDrawable, programHandle: ULong) =
-		canvas.drawGwrObj(this, drawable, programHandle)
+	fun renderGwrGeo(drawable: WorldObjDrawable, space: LightSpace, programHandle: ULong) =
+		canvas.drawGwrObj(this, drawable, space, programHandle)
 
 	fun renderGwrShadow(drawable: WorldObjDrawable, space: LightSpace, programHandle: ULong) =
 		canvas.drawGwrShadow(this, drawable, space, programHandle)

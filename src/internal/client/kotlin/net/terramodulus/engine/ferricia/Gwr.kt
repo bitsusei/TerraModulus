@@ -99,10 +99,18 @@ internal object Gwr {
 	 * @param canvasHandle Canvas handle pointer
 	 * @param cameraHandle Camera3D handle pointer
 	 * @param objHandle DrawableWorldObj handle pointer
+	 * @param spaceHandle LightSpace handle pointer
 	 * @param programHandle GWR Shader Program handle pointer
 	 */
 	@JvmName("drawGwrObj")
-	external fun drawGwrObj(windowHandle: ULong, canvasHandle: ULong, cameraHandle: ULong, objHandle: ULong, programHandle: ULong)
+	external fun drawGwrObj(
+		windowHandle: ULong,
+		canvasHandle: ULong,
+		cameraHandle: ULong,
+		objHandle: ULong,
+		spaceHandle: ULong,
+		programHandle: ULong,
+	)
 
 	/**
 	 * @param data AABB min and max corners in x, y, z

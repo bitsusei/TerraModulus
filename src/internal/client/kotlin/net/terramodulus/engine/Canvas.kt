@@ -99,8 +99,12 @@ class Canvas internal constructor(private val windowHandle: ULong) : Closeable {
 	fun renderGuiTex(drawable: MeshDrawable, programHandle: ULong, textureHandle: UInt) =
 		drawGuiTex(handle, drawable.handle, programHandle, textureHandle)
 
-	internal fun drawGwrObj(camera3D: Camera3D, drawable: WorldObjDrawable, programHandle: ULong) =
-		drawGwrObj(windowHandle, handle, camera3D.handle, drawable.handle, programHandle)
+	internal fun drawGwrObj(
+		camera3D: Camera3D,
+		drawable: WorldObjDrawable,
+		space: Camera3D.LightSpace,
+		programHandle: ULong,
+	) = drawGwrObj(windowHandle, handle, camera3D.handle, drawable.handle, space.handle, programHandle)
 
 	internal fun drawGwrShadow(
 		camera3D: Camera3D,
