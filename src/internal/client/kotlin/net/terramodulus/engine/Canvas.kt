@@ -9,8 +9,10 @@ import net.terramodulus.engine.ferricia.Gwr
 import net.terramodulus.engine.ferricia.Gwr.drawGwrObj
 import net.terramodulus.engine.ferricia.Gwr.drawGwrShadow
 import net.terramodulus.engine.ferricia.Gwr.endShadowRendering
+import net.terramodulus.engine.ferricia.Gwr.newLineGeom
 import net.terramodulus.engine.ferricia.Gwr.newMeshGeomCube
 import net.terramodulus.engine.ferricia.Gwr.newMeshGeomSphere
+import net.terramodulus.engine.ferricia.Gwr.newQuadGeom
 import net.terramodulus.engine.ferricia.Gwr.startShadowRendering
 import net.terramodulus.engine.ferricia.Mui
 import net.terramodulus.engine.ferricia.Mui.clearCanvas
@@ -88,6 +90,10 @@ class Canvas internal constructor(private val windowHandle: ULong) : Closeable {
 
 	internal fun newSpriteMesh(x0: Int, y0: Int, x1: Int, y1: Int) =
 		newSpriteMesh(windowHandle, intArrayOf(x0, y0, x1, y1))
+
+	internal fun newLineGeom(data: FloatArray) = newLineGeom(windowHandle, data)
+
+	internal fun newQuadGeom(data: FloatArray) = newQuadGeom(windowHandle, data)
 
 	internal fun newMeshGeomCube(width: Float) = newMeshGeomCube(windowHandle, width)
 

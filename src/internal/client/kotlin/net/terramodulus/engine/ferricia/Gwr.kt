@@ -65,6 +65,22 @@ internal object Gwr {
 
 	/**
 	 * @param windowHandle window handle pointer
+	 * @param data two points in x, y, z
+	 * @return SimpleLine3dGeom handle pointer and Render3dPrimitive (wide) handle pointer
+	 */
+	@JvmName("newLineGeom")
+	external fun newLineGeom(windowHandle: ULong, data: FloatArray): ULongArray
+
+	/**
+	 * @param windowHandle window handle pointer
+	 * @param data four points in x, y, z
+	 * @return SimpleQuad3dGeom handle pointer and Render3dPrimitive (wide) handle pointer
+	 */
+	@JvmName("newQuadGeom")
+	external fun newQuadGeom(windowHandle: ULong, data: FloatArray): ULongArray
+
+	/**
+	 * @param windowHandle window handle pointer
 	 * @param width cube's width, in `(0,2]`
 	 * @return SimpleMesh3dGeom handle pointer and Render3dPrimitive (wide) handle pointer
 	 */

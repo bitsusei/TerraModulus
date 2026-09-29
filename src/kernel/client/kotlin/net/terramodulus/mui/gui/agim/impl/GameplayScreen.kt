@@ -12,6 +12,7 @@ import com.cout970.math.vec2.minus
 import com.cout970.math.vec2.normalized
 import com.cout970.math.vec2.times
 import com.cout970.math.vec3.ImmVec3d
+import com.cout970.math.vec3.ImmVec3f
 import com.cout970.math.vec3.ImmVec3i
 import com.cout970.math.vec3.Vec3d
 import com.cout970.math.vec3.Vec3f
@@ -27,6 +28,7 @@ import com.cout970.math.vec3.toImmVec3d
 import com.cout970.math.vec3.toImmVec3f
 import com.cout970.math.vec3.toMutVec3d
 import com.cout970.math.vec4.ImmVec4i
+import com.cout970.math.vec4.Vec4i
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
@@ -38,8 +40,10 @@ import net.terramodulus.engine.Camera3D
 import net.terramodulus.engine.PhyBody
 import net.terramodulus.engine.PhyGeom
 import net.terramodulus.engine.PlaceablePhyGeom
+import net.terramodulus.engine.SimpleLine3dGeom
 import net.terramodulus.engine.SimpleMesh3dGeomCube
 import net.terramodulus.engine.SimpleMesh3dGeomSphere
+import net.terramodulus.engine.SimpleQuad3dGeom
 import net.terramodulus.engine.WorldObjDrawable
 import net.terramodulus.engine.common.ImmVec3dFromArray
 import net.terramodulus.engine.common.ZeroImmVec3d
@@ -54,6 +58,8 @@ import net.terramodulus.mui.gui.agim.ScreenManager
 import net.terramodulus.mui.gui.agim.event.ComponentEvent
 import net.terramodulus.mui.gui.agim.event.MenuEvent
 import net.terramodulus.mui.gui.agim.event.ScreenEvent
+import net.terramodulus.mui.gui.agim.impl.GameplayScreen.AxisHelpers.AxisXHelper
+import net.terramodulus.mui.gui.agim.impl.GameplayScreen.AxisHelpers.FloorPlaneHelper
 import net.terramodulus.mui.gui.asd.AsdHandle
 import net.terramodulus.mui.gui.gfx.AlphaFilter
 import net.terramodulus.mui.gui.gfx.Cuboid
@@ -93,6 +99,10 @@ private val GREEN = ImmVec4i(0, 255, 0, 255)
 private val BLUE = ImmVec4i(0, 0, 255, 255)
 private val STD_SCALE = ImmVec3d(.5, .5, .5)
 private val IDENT_ROT = ImmQuatd(1.0, .0, .0, .0)
+private val HELPER_AXIS_X_COL = ImmVec4i(255, 0, 0, 255)
+private val HELPER_AXIS_Y_COL = ImmVec4i(0, 255, 0, 255)
+private val HELPER_AXIS_Z_COL = ImmVec4i(0, 0, 255, 255)
+private val HELPER_FLOOR_COL = ImmVec4i(200, 200, 200, 125)
 private const val MASS = 1.0
 private const val MAX_SPEED = PI // reachable by autonomous movement
 private const val MAX_ACC = PI // without other forces, reaching MAX_SPEED in one second
@@ -149,6 +159,8 @@ internal class GameplayScreen(
 	private var projectionSpeed = 2.0
 
 	private val worldCommands = mutableListOf<WorldCommand>()
+
+	private val axisHelpers = AxisHelpers()
 
 	private sealed class WorldCommand {
 		data class AddProjection(val pos: Vec3d, val dir: Vec3d) : WorldCommand()
@@ -377,6 +389,18 @@ internal class GameplayScreen(
 												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
 													TextContext.Config(20F, 20F, ImmVec4i(255)),
 												).apply { text = "Zoom Level" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "X Axis Helper" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Y Axis Helper" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Z Axis Helper" },
+												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												).apply { text = "Floor Helper" },
 											), SequenceLayout.Config(Direction2S.Negative, intrinsic = true))(this)
 										} to SequenceLayout.Element(1.0),
 										SimplePane(ComponentAsdHandleImpl()) {
@@ -740,6 +764,18 @@ internal class GameplayScreen(
 													), SequenceLayout.Config(Direction2S.Positive, intrinsic = true)
 													)(this).apply { layout = this }
 												},
+												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
+													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle,
+												) { axisHelpers.toggleAxisX() }, SizedPane.Config(20u, 20u)),
+												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
+													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle,
+												) { axisHelpers.toggleAxisY() }, SizedPane.Config(20u, 20u)),
+												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
+													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle,
+												) { axisHelpers.toggleAxisZ() }, SizedPane.Config(20u, 20u)),
+												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
+													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle,
+												) { axisHelpers.togglePlane() }, SizedPane.Config(20u, 20u)),
 											), SequenceLayout.Config(Direction2S.Negative, intrinsic = true))(this)
 										} to SequenceLayout.Element(1.0),
 										config = SequenceLayout.Config(Direction2S.Positive, 2.0, 2.0, true),
@@ -1485,6 +1521,99 @@ internal class GameplayScreen(
 			.map { it.geom }
 	}
 
+	private inner class AxisHelpers {
+		private abstract inner class LineHelper(points: List<Vec3f>, color: Vec4i) {
+			protected val drawable = WorldObjDrawable(
+				SimpleLine3dGeom(canvasHandle.canvas, points),
+				color,
+				ZeroImmVec3d,
+				STD_SCALE,
+				IDENT_ROT,
+			)
+
+			abstract fun render(cuboid: Cuboid, space: Camera3D.LightSpace)
+
+		}
+
+		private inner class AxisXHelper : LineHelper(listOf(ImmVec3f(x = 1F), ImmVec3f(x = -1F)), HELPER_AXIS_X_COL) {
+			override fun render(cuboid: Cuboid, space: Camera3D.LightSpace) {
+				drawable.setScale(STD_SCALE.toMutVec3d().apply { x *= cuboid.dims.x })
+				drawable.setPos(player.pos)
+				camera.renderGwrGeo(drawable, space, geoShaders)
+			}
+		}
+
+		private inner class AxisYHelper : LineHelper(listOf(ImmVec3f(y = 1F), ImmVec3f(y = -1F)), HELPER_AXIS_Y_COL) {
+			override fun render(cuboid: Cuboid, space: Camera3D.LightSpace) {
+				drawable.setScale(STD_SCALE.toMutVec3d().apply { y *= cuboid.dims.y })
+				drawable.setPos(player.pos.toMutVec3d().apply { y = cuboid.center().y })
+				camera.renderGwrGeo(drawable, space, geoShaders)
+			}
+		}
+
+		private inner class AxisZHelper : LineHelper(listOf(ImmVec3f(z = 1F), ImmVec3f(z = -1F)), HELPER_AXIS_Z_COL) {
+			override fun render(cuboid: Cuboid, space: Camera3D.LightSpace) {
+				drawable.setScale(STD_SCALE.toMutVec3d().apply { z *= cuboid.dims.z })
+				drawable.setPos(player.pos)
+				camera.renderGwrGeo(drawable, space, geoShaders)
+			}
+		}
+
+		private inner class FloorPlaneHelper {
+			private val drawable = WorldObjDrawable(
+				SimpleQuad3dGeom(canvasHandle.canvas, listOf(
+					ImmVec3f(1F, 0F, 1F),
+					ImmVec3f(-1F, 0F, 1F),
+					ImmVec3f(1F, 0F, -1F),
+					ImmVec3f(-1F, 0F, -1F),
+				)),
+				HELPER_FLOOR_COL,
+				ZeroImmVec3d,
+				STD_SCALE,
+				IDENT_ROT,
+			)
+
+			var depth = 1.0
+
+			fun render(cuboid: Cuboid, space: Camera3D.LightSpace) {
+				drawable.setScale(STD_SCALE.toMutVec3d().apply {
+					x *= cuboid.dims.x
+					z *= cuboid.dims.z
+				})
+				drawable.setPos(player.pos.toMutVec3d().apply { y -= depth })
+				camera.renderGwrGeo(drawable, space, geoShaders)
+			}
+		}
+
+		private var axisX: AxisXHelper? = null
+		private var axisY: AxisYHelper? = null
+		private var axisZ: AxisZHelper? = null
+		private var plane: FloorPlaneHelper? = null
+
+		fun toggleAxisX() {
+			axisX = if (axisX == null) AxisXHelper() else null
+		}
+
+		fun toggleAxisY() {
+			axisY = if (axisY == null) AxisYHelper() else null
+		}
+
+		fun toggleAxisZ() {
+			axisZ = if (axisZ == null) AxisZHelper() else null
+		}
+
+		fun togglePlane() {
+			plane = if (axisZ == null) FloorPlaneHelper() else null
+		}
+
+		fun render(cuboid: Cuboid, space: Camera3D.LightSpace) {
+			axisX?.render(cuboid, space)
+			axisY?.render(cuboid, space)
+			axisZ?.render(cuboid, space)
+			plane?.render(cuboid, space)
+		}
+	}
+
 	private inner class GameplayRenderer(
 		renderSystemHandle: RenderSystem.Handle,
 		inputStatesHandle: InputStatesHandle,
@@ -1562,6 +1691,7 @@ internal class GameplayScreen(
 								.forEach { renderGwrSdw(it.second, space) }
 						}
 						geoms.forEach { renderGwrGeo(it.second, space) }
+						axisHelpers.render(cuboid, space)
 					}
 				}
 			}

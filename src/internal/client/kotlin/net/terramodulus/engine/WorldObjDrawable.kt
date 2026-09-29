@@ -7,9 +7,13 @@ package net.terramodulus.engine
 
 import com.cout970.math.quaternion.Quatd
 import com.cout970.math.vec3.ImmVec3d
+import com.cout970.math.vec3.ImmVec3f
 import com.cout970.math.vec3.Vec3d
+import com.cout970.math.vec3.Vec3f
 import com.cout970.math.vec3.times
+import com.cout970.math.vec3.toImmVec3d
 import com.cout970.math.vec4.Vec4i
+import net.terramodulus.engine.common.toArray
 import net.terramodulus.engine.ferricia.Gwr.newDrawableWorldObj
 import net.terramodulus.engine.ferricia.Gwr.updateWorldObjModel
 
@@ -80,6 +84,31 @@ sealed class WorldObjGeom(handles: ULongArray) {
 	internal val wideHandle = handles[1]
 
 	internal abstract val geomDims: Vec3d
+}
+
+private inline fun <T, R> List<List<T>>.mapInverse(transform: (List<T>) -> R): List<R> {
+	if (isEmpty()) return emptyList()
+	val innerSize = first().size
+	require(all { it.size == innerSize }) { "All inner lists must have the same size" }
+	return (0 until innerSize).map { index -> transform(map { it[index] }) }
+}
+
+@OptIn(ExperimentalUnsignedTypes::class)
+class SimpleLine3dGeom(canvas: Canvas, points: List<Vec3f>) :
+	WorldObjGeom(canvas.newLineGeom(points.flatMap { it.toArray().asIterable() }.toFloatArray())) {
+	init { require(points.size == 2) }
+	override val geomDims = points.map { it.toArray().asList() }.mapInverse { it.min() to it.max() }.let {
+		ImmVec3f(it[0].second - it[0].first, it[1].second - it[1].first, it[2].second - it[2].first).toImmVec3d()
+	}
+}
+
+@OptIn(ExperimentalUnsignedTypes::class)
+class SimpleQuad3dGeom(canvas: Canvas, points: List<Vec3f>) :
+	WorldObjGeom(canvas.newQuadGeom(points.flatMap { it.toArray().asIterable() }.toFloatArray())) {
+	init { require(points.size == 4) }
+	override val geomDims = points.map { it.toArray().asList() }.mapInverse { it.min() to it.max() }.let {
+		ImmVec3f(it[0].second - it[0].first, it[1].second - it[1].first, it[2].second - it[2].first).toImmVec3d()
+	}
 }
 
 @OptIn(ExperimentalUnsignedTypes::class)
