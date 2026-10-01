@@ -58,8 +58,6 @@ import net.terramodulus.mui.gui.agim.ScreenManager
 import net.terramodulus.mui.gui.agim.event.ComponentEvent
 import net.terramodulus.mui.gui.agim.event.MenuEvent
 import net.terramodulus.mui.gui.agim.event.ScreenEvent
-import net.terramodulus.mui.gui.agim.impl.GameplayScreen.AxisHelpers.AxisXHelper
-import net.terramodulus.mui.gui.agim.impl.GameplayScreen.AxisHelpers.FloorPlaneHelper
 import net.terramodulus.mui.gui.asd.AsdHandle
 import net.terramodulus.mui.gui.gfx.AlphaFilter
 import net.terramodulus.mui.gui.gfx.Cuboid
@@ -88,7 +86,6 @@ import kotlin.properties.Delegates
 import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlin.reflect.KProperty0
-import kotlin.sequences.filter
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
@@ -923,7 +920,10 @@ internal class GameplayScreen(
 				if (it == null) {
 					placeComponent(::rowTpsTpt, newRowComponent().apply { rowTpsTpt = this })
 					refreshTpsTpt()
-				} else layout.remove(it)
+				} else {
+					layout.remove(it)
+					rowTpsTpt = null
+				}
 			}
 		}
 
@@ -938,7 +938,10 @@ internal class GameplayScreen(
 				if (it == null) {
 					placeComponent(::rowPos, newRowComponent().apply { rowPos = this })
 					refreshPos()
-				} else layout.remove(it)
+				} else {
+					layout.remove(it)
+					rowPos = null
+				}
 			}
 		}
 
@@ -951,7 +954,10 @@ internal class GameplayScreen(
 				if (it == null) {
 					placeComponent(::rowVel, newRowComponent().apply { rowVel = this })
 					refreshVel()
-				} else layout.remove(it)
+				} else {
+					layout.remove(it)
+					rowVel = null
+				}
 			}
 		}
 
@@ -964,7 +970,10 @@ internal class GameplayScreen(
 				if (it == null) {
 					placeComponent(::rowForceAcc, newRowComponent().apply { rowForceAcc = this })
 					refreshForceAcc()
-				} else layout.remove(it)
+				} else {
+					layout.remove(it)
+					rowForceAcc = null
+				}
 			}
 		}
 

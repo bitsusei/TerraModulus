@@ -32,13 +32,15 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 	var gravity: Vec3d by world::gravity
 	var frictionMode: FrictionMode by Delegates.observable(FrictionMode.Infinite) { _, _, new ->
 		when (new) {
-			FrictionMode.Zero -> world.setFriction(0.0)
-			FrictionMode.Limited -> world.setFriction(friction)
-			FrictionMode.Infinite -> world.setFriction(Double.POSITIVE_INFINITY)
+			FrictionMode.Zero -> updateEvents.add(UpdateEvent { world.setFriction(0.0) })
+			FrictionMode.Limited -> updateEvents.add(UpdateEvent { world.setFriction(friction) })
+			FrictionMode.Infinite -> updateEvents.add(UpdateEvent { world.setFriction(Double.POSITIVE_INFINITY) })
 		}
 	}
 	var friction: Double by Delegates.observable(1.0) { _, _, new ->
-		if (frictionMode == FrictionMode.Limited) world.setFriction(new)
+		if (frictionMode == FrictionMode.Limited) updateEvents.add(UpdateEvent {
+			world.setFriction(new)
+		})
 	}
 
 	enum class FrictionMode {
@@ -56,6 +58,10 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 
 		fun setProgress(progress: Double)
 	}
+
+	private val updateEvents = ArrayDeque<UpdateEvent>()
+
+	private class UpdateEvent(val update: () -> Unit)
 
 	init {
 		gravity = ImmVec3d(0.0, -9.81, 0.0)
@@ -115,6 +121,7 @@ class World(commander: Ymir.Builder, progressBar: ProgressBar) : Closeable {
 				var ticks = 0
 				while(true) {
 					updateListeners.forEach { it(UpdaterEvent(commander)) }
+					repeat(updateEvents.count()) { updateEvents.removeFirst().update() }
 					// uncalculated ticks are not accumulated at this stage, *delayed* instead
 					tick()
 					val now = timeSource.markNow()

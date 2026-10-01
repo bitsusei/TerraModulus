@@ -34,7 +34,7 @@ class PhyWorld internal constructor(envHandle: ULong) {
 	fun newBody(mass: PhyBody.Mass) = PhyBody.withMass(handle, mass)
 	fun newKinematicBody() = PhyBody.asKinematic(handle)
 
-	fun setFriction(friction: Double) = setPhyCollisionManagerFriction(handle, friction)
+	fun setFriction(friction: Double) = setPhyCollisionManagerFriction(cmHandle, friction)
 	fun omitSpace(space: PhySpace) = omitPhyCollisionManagerSpace(cmHandle, space.handle)
 
 	fun newStaticSpaceSet() = StaticSpaceSet(newPhyWorldStaticSpaceSet(handle))
