@@ -5,14 +5,25 @@
 
 package net.terramodulus.engine.ferricia
 
+@OptIn(ExperimentalUnsignedTypes::class)
 internal object Gwr {
 	/**
+	 * @param windowHandle window handle pointer
 	 * @param vsh source code of vector shader
 	 * @param fsh source code of fragment shader
 	 * @return GWR Geo Shader Program handle pointer
 	 */
 	@JvmName("geoShaders")
-	external fun geoShaders(vsh: String, fsh: String): ULong
+	external fun geoShaders(windowHandle: ULong, vsh: String, fsh: String): ULong
+
+	/**
+	 * @param windowHandle window handle pointer
+	 * @param vsh source code of vector shader
+	 * @param fsh source code of fragment shader
+	 * @return GWR Sdw Shader Program handle pointer
+	 */
+	@JvmName("sdwShaders")
+	external fun sdwShaders(windowHandle: ULong, vsh: String, fsh: String): ULong
 
 	/**
 	 * @param canvasHandle Canvas handle pointer
@@ -21,6 +32,13 @@ internal object Gwr {
 	 */
 	@JvmName("newCamera")
 	external fun newCamera(canvasHandle: ULong, data: FloatArray): ULong
+
+	/**
+	 * @param cameraHandle Camera3D handle pointer
+	 * @return `[x, z]` space dimensions
+	 */
+	@JvmName("getCameraSpace")
+	external fun getCameraSpace(cameraHandle: ULong): DoubleArray
 
 	/**
 	 * @param cameraHandle Camera3D handle pointer
@@ -37,20 +55,53 @@ internal object Gwr {
 	external fun setCameraZoomLevel(cameraHandle: ULong, data: Float)
 
 	/**
-	 * @param width cube's width, in `(0,2]`
-	 * @param data `[r, g, b, a]`
-	 * @return DrawableWorldObj handle pointer
+	 * @param cameraHandle Camera3D handle pointer
+	 * @param data1 ceiling level and floor level
+	 * @param data2 near and far thresholds
+	 * @param data3 `[r, b, g]`; fog color
 	 */
-	@JvmName("newMeshGeomCube")
-	external fun newMeshGeomCube(width: Float, data: IntArray): ULong
+	@JvmName("setCameraSpace")
+	external fun setCameraSpace(cameraHandle: ULong, data1: DoubleArray, data2: FloatArray, data3: IntArray)
 
 	/**
+	 * @param windowHandle window handle pointer
+	 * @param data two points in x, y, z
+	 * @return SimpleLine3dGeom handle pointer and Render3dPrimitive (wide) handle pointer
+	 */
+	@JvmName("newLineGeom")
+	external fun newLineGeom(windowHandle: ULong, data: FloatArray): ULongArray
+
+	/**
+	 * @param windowHandle window handle pointer
+	 * @param data four points in x, y, z
+	 * @return SimpleQuad3dGeom handle pointer and Render3dPrimitive (wide) handle pointer
+	 */
+	@JvmName("newQuadGeom")
+	external fun newQuadGeom(windowHandle: ULong, data: FloatArray): ULongArray
+
+	/**
+	 * @param windowHandle window handle pointer
+	 * @param width cube's width, in `(0,2]`
+	 * @return SimpleMesh3dGeom handle pointer and Render3dPrimitive (wide) handle pointer
+	 */
+	@JvmName("newMeshGeomCube")
+	external fun newMeshGeomCube(windowHandle: ULong, width: Float): ULongArray
+
+	/**
+	 * @param windowHandle window handle pointer
 	 * @param width cube's radius, in `(0,1]`
+	 * @return SimpleMesh3dGeom handle pointer and Render3dPrimitive (wide) handle pointer
+	 */
+	@JvmName("newMeshGeomSphere")
+	external fun newMeshGeomSphere(windowHandle: ULong, width: Float): ULongArray
+
+	/**
+	 * @param handle Render3dPrimitive (wide) handle pointer
 	 * @param data `[r, g, b, a]`
 	 * @return DrawableWorldObj handle pointer
 	 */
-	@JvmName("newMeshGeomSphere")
-	external fun newMeshGeomSphere(width: Float, data: IntArray): ULong
+	@JvmName("newDrawableWorldObj")
+	external fun newDrawableWorldObj(handle: ULong, data: IntArray): ULong
 
 	/**
 	 * @param objHandle DrawableWorldObj handle pointer
@@ -60,11 +111,72 @@ internal object Gwr {
 	external fun updateWorldObjModel(objHandle: ULong, data: DoubleArray)
 
 	/**
+	 * @param windowHandle window handle pointer
 	 * @param canvasHandle Canvas handle pointer
 	 * @param cameraHandle Camera3D handle pointer
 	 * @param objHandle DrawableWorldObj handle pointer
+	 * @param spaceHandle LightSpace handle pointer
 	 * @param programHandle GWR Shader Program handle pointer
 	 */
 	@JvmName("drawGwrObj")
-	external fun drawGwrObj(canvasHandle: ULong, cameraHandle: ULong, objHandle: ULong, programHandle: ULong)
+	external fun drawGwrObj(
+		windowHandle: ULong,
+		canvasHandle: ULong,
+		cameraHandle: ULong,
+		objHandle: ULong,
+		spaceHandle: ULong,
+		programHandle: ULong,
+	)
+
+	/**
+	 * @param data AABB min and max corners in x, y, z
+	 * @return LightSpace handle pointer
+	 */
+	@JvmName("newLightSpace")
+	external fun newLightSpace(data: DoubleArray): ULong
+
+	/**
+	 * @param spaceHandle LightSpace handle pointer
+	 * @return AABB min and max corners in x, y, z
+	 */
+	@JvmName("getLightSpaceAabb")
+	external fun getLightSpaceAabb(spaceHandle: ULong): DoubleArray
+
+	/**
+	 * @param spaceHandle LightSpace handle pointer
+	 */
+	@JvmName("dropLightSpace")
+	external fun dropLightSpace(spaceHandle: ULong)
+
+	/**
+	 * @param windowHandle window handle pointer
+	 * @param cameraHandle Camera3D handle pointer
+	 */
+	@JvmName("startShadowRendering")
+	external fun startShadowRendering(windowHandle: ULong, cameraHandle: ULong)
+
+	/**
+	 * @param windowHandle window handle pointer
+	 * @param cameraHandle Camera3D handle pointer
+	 */
+	@JvmName("endShadowRendering")
+	external fun endShadowRendering(windowHandle: ULong, cameraHandle: ULong)
+
+	/**
+	 * @param windowHandle window handle pointer
+	 * @param canvasHandle Canvas handle pointer
+	 * @param cameraHandle Camera3D handle pointer
+	 * @param objHandle DrawableWorldObj handle pointer
+	 * @param spaceHandle LightSpace handle pointer
+	 * @param programHandle GWR Shader Program handle pointer
+	 */
+	@JvmName("drawGwrShadow")
+	external fun drawGwrShadow(
+		windowHandle: ULong,
+		canvasHandle: ULong,
+		cameraHandle: ULong,
+		objHandle: ULong,
+		spaceHandle: ULong,
+		programHandle: ULong,
+	)
 }
