@@ -51,7 +51,13 @@ import net.terramodulus.mui.gui.InputStatesHandle
 import net.terramodulus.mui.gui.MouseCtxStates
 import net.terramodulus.mui.gui.MouseState
 import net.terramodulus.mui.gui.agim.AbstractPane
+import net.terramodulus.mui.gui.agim.AgimoPropertyMap
+import net.terramodulus.mui.gui.agim.AnchorAlignmentHelper
 import net.terramodulus.mui.gui.agim.Component
+import net.terramodulus.mui.gui.agim.Layout
+import net.terramodulus.mui.gui.agim.LayoutComputationGroup
+import net.terramodulus.mui.gui.agim.LayoutComputationUnit
+import net.terramodulus.mui.gui.agim.LayoutHandle
 import net.terramodulus.mui.gui.agim.Menu
 import net.terramodulus.mui.gui.agim.Screen
 import net.terramodulus.mui.gui.agim.ScreenManager
@@ -61,8 +67,10 @@ import net.terramodulus.mui.gui.agim.event.ScreenEvent
 import net.terramodulus.mui.gui.asd.AsdHandle
 import net.terramodulus.mui.gui.gfx.AlphaFilter
 import net.terramodulus.mui.gui.gfx.Cuboid
+import net.terramodulus.mui.gui.gfx.Dimension2D
 import net.terramodulus.mui.gui.gfx.Dimension3D
 import net.terramodulus.mui.gui.gfx.Direction2S
+import net.terramodulus.mui.gui.gfx.Direction4A
 import net.terramodulus.mui.gui.gfx.Direction6C
 import net.terramodulus.mui.gui.gfx.GeneralTransform
 import net.terramodulus.mui.gui.gfx.GuiLine
@@ -309,49 +317,56 @@ internal class GameplayScreen(
 										RectangleD(0.0, 0.0, 1.0, 1.0),
 										ComponentAsdHandleImpl(),
 									), SingletonLayout.Config.Absolute.Full))
-// 									lateinit var trackingCtrlPane1: CollapsablePane
-// 									lateinit var trackingCtrlPane2: CollapsablePane
-									add(RowLayout.withElements(
-										SimplePane(ComponentAsdHandleImpl()) {
-											ColumnLayout.withComponents(listOf(
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Legacy Hotkeys" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Mouse Debug Tracking" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Gravity Influence" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Gravity (-y)" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Friction Mode" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Friction (Limited mode)" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Speed Factor" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Acceleration Factor" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Projection Type" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Projection Speed" },
-// 												CollapsablePane(canvasHandle, ComponentAsdHandleImpl()) {
-// 													config(YPos, Neg, TextDisplayComponent(
-// 														ComponentAsdHandleImpl(),
-// 														renderSystemHandle,
-// 														TextContext.Config(20F, 20F, ImmVec4i(255)),
-// 													).apply { text = "Tracking..." },
-// 														SimplePane(ComponentAsdHandleImpl()) {
-// 															ColumnLayout.withComponents(listOf(
+									add(SingletonLayout(
+										this@SimplePane,
+										TogglablePane(
+											inputStatesHandle,
+											TogglablePaneConfig(Direction4A.YNeg, 0.0),
+											SimplePane(ComponentAsdHandleImpl()) top@ {
+												RowLayout.withElements(
+													SimplePane(ComponentAsdHandleImpl()) {
+														ColumnLayout.withComponents(
+															listOf(
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Legacy Hotkeys" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Mouse Debug Tracking" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Gravity Influence" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Gravity (-y)" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Friction Mode" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Friction (Limited mode)" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Speed Factor" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Acceleration Factor" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Projection Type" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Projection Speed" },
 																TextDisplayComponent(
 																	ComponentAsdHandleImpl(),
 																	renderSystemHandle,
@@ -372,411 +387,707 @@ internal class GameplayScreen(
 																	renderSystemHandle,
 																	TextContext.Config(20F, 20F, ImmVec4i(255)),
 																).apply { text = "Force/Acceleration" },
-// 															), SequenceLayout.Config(
-// 																Direction2S.Neg,
-// 																intrinsic = true,
-// 															))(this)
-// 														})
-// 												}.apply {
-// 													trackingCtrlPane1 = this
-// 													withMouseInput(inputStatesHandle) {
-// 														trackingCtrlPane2.open = !trackingCtrlPane2.open
-// 													}
-// 												},
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Zoom Level" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "X Axis Helper" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Y Axis Helper" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Z Axis Helper" },
-												TextDisplayComponent(ComponentAsdHandleImpl(), renderSystemHandle,
-													TextContext.Config(20F, 20F, ImmVec4i(255)),
-												).apply { text = "Floor Helper" },
-											), SequenceLayout.Config(Direction2S.Negative, intrinsic = true))(this)
-										} to SequenceLayout.Element(1.0),
-										SimplePane(ComponentAsdHandleImpl()) {
-											ColumnLayout.withComponents(listOf(
-												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
-													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle
-												) { hotkeysEnabled = it }, SizedPane.Config(20u, 20u)),
-												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
-													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle,
-												) { mouseDebugTrackingLayer.enabled = it }, SizedPane.Config(20u, 20u)),
-												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
-													ComponentAsdHandleImpl(),
-													inputStatesHandle,
-													canvasHandle,
-													player.phyBody.gravityMode,
-												) { player.phyBody.gravityMode = it }.apply {
-													gravityModeListener = { checked = player.phyBody.gravityMode }
-												}, SizedPane.Config(20u, 20u)),
-												SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl())
-												parent@ {
-													CompositeLayout(this).apply {
-														lateinit var listener: (Double) -> Unit
-														add(SingletonLayout(this@parent, SliderComponent(
-															canvasHandle, inputStatesHandle, ComponentAsdHandleImpl()
-														) {
-															config(withRanged(
-																MIN_GRAVITY..MAX_GRAVITY,
-																-core.world!!.gravity.y,
-															) {
-																core.world!!.gravity = core.world!!.gravity
-																	.toMutVec3d().apply { y = -it }
-																listener(it)
-															}, xPos, ImmVec4i(123, 234, 56, 255),
-																ImmVec4i(50, 50, 250, 255),
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Zoom Level" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "X Axis Helper" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Y Axis Helper" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Z Axis Helper" },
+																TextDisplayComponent(
+																	ComponentAsdHandleImpl(), renderSystemHandle,
+																	TextContext.Config(20F, 20F, ImmVec4i(255)),
+																).apply { text = "Floor Helper" },
+															),
+															SequenceLayout.Config(
+																Direction2S.Negative,
+																intrinsic = true
 															)
-														}.apply {
-															gravityListener = {
-																val v = -core.world!!.gravity.y
-																fraction = SliderComponent.SliderMode.Ranged.Transform
-																	.Linear.project(v, MIN_GRAVITY..MAX_GRAVITY)
-																listener(v)
-															}
-														}, SingletonLayout.Config.Absolute.Full))
-														add(SingletonLayout(this@parent, TextDisplayComponent(
-															ComponentAsdHandleImpl(), renderSystemHandle,
-															TextContext.Config(20F, 20F, ImmVec4i(255))
-														).apply {
-															listener = { it: Double ->
-																text = String.format("%.2f", it)
-															}.apply { this(-core.world!!.gravity.y) }
-														}, SingletonLayout.Config.Absolute.Full))
-													}
-												}, SizedPane.Config(100u, 20u)),
-												ButtonComponent(
-													ComponentAsdHandleImpl(),
-													inputStatesHandle,
-													{
-														lateinit var layout: SingletonLayout
-														SingletonLayout(this, TextDisplayComponent(
-															ComponentAsdHandleImpl(),
-															renderSystemHandle,
-															TextContext.Config(20F, 20F, ImmVec4i(255)),
-														).apply {
-															val listener = {
-																text = core.world!!.frictionMode.toString()
-															}.apply { this() }
-															frictionModeListener = {
-																layout.operate { listener() }
-															}
-														}, SingletonLayout.Config.Sole(
-															SingletonLayout.Config.Scaled.Scale(1.0)
-														)).apply { layout = this }
-													},
-												) {
-													core.world!!.frictionMode = World.FrictionMode.entries[
-														(core.world!!.frictionMode.ordinal + 1) % World.FrictionMode.entries.size
-													]
-													frictionModeListener()
-												},
-												SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl())
-												parent@ {
-													CompositeLayout(this).apply {
-														lateinit var listener: (Double) -> Unit
-														add(SingletonLayout(this@parent, SliderComponent(
-															canvasHandle, inputStatesHandle, ComponentAsdHandleImpl()
-														) {
-															config(withRanged(
-																MIN_FRICTION..MAX_FRICTION,
-																core.world!!.friction,
-																transformLinearExponential(2.0),
-															) {
-																core.world!!.friction = it
-																listener(it)
-															}, xPos, ImmVec4i(123, 234, 56, 255),
-																ImmVec4i(50, 50, 250, 255),
-															)
-														}.apply {
-															frictionListener = {
-																val v = core.world!!.friction
-																fraction = SliderComponent.SliderMode.Ranged.Transform
-																	.LinearExponential(2.0)
-																	.project(v, MIN_FRICTION..MAX_FRICTION)
-																listener(v)
-															}
-														}, SingletonLayout.Config.Absolute.Full))
-														add(SingletonLayout(this@parent, TextDisplayComponent(
-															ComponentAsdHandleImpl(), renderSystemHandle,
-															TextContext.Config(20F, 20F, ImmVec4i(255))
-														).apply {
-															listener = { it: Double ->
-																text = String.format("%.2f", it)
-															}.apply { this(core.world!!.friction) }
-														}, SingletonLayout.Config.Absolute.Full))
-													}
-												}, SizedPane.Config(100u, 20u)),
-												SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl())
-												parent@ {
-													CompositeLayout(this).apply {
-														lateinit var listener: () -> Unit
-														add(SingletonLayout(this@parent, SliderComponent(
-															canvasHandle, inputStatesHandle, ComponentAsdHandleImpl()
-														) {
-															config(withRanged(
-																MIN_SPEED_FACTOR..MAX_SPEED_FACTOR,
-																speedFactor,
-																transformLinearExponential(2.0),
-															) {
-																speedFactor = it
-																listener()
-															}, xPos, ImmVec4i(123, 234, 56, 255),
-																ImmVec4i(50, 50, 250, 255),
-															)
-														}, SingletonLayout.Config.Absolute.Full))
-														add(SingletonLayout(this@parent, TextDisplayComponent(
-															ComponentAsdHandleImpl(), renderSystemHandle,
-															TextContext.Config(20F, 20F, ImmVec4i(255))
-														).apply {
-															listener = {
-																text = String.format("%.4g", speedFactor)
-															}.apply { this() }
-														}, SingletonLayout.Config.Absolute.Full))
-													}
-												}, SizedPane.Config(100u, 20u)),
-												SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl())
-												parent@ {
-													CompositeLayout(this).apply {
-														lateinit var listener: () -> Unit
-														add(SingletonLayout(this@parent, SliderComponent(
-															canvasHandle, inputStatesHandle, ComponentAsdHandleImpl()
-														) {
-															config(withRanged(
-																MIN_ACC_FACTOR..MAX_ACC_FACTOR,
-																accFactor,
-																transformLinearExponential(2.0),
-															) {
-																accFactor = it
-																listener()
-															}, xPos, ImmVec4i(123, 234, 56, 255),
-																ImmVec4i(50, 50, 250, 255),
-															)
-														}, SingletonLayout.Config.Absolute.Full))
-														add(SingletonLayout(this@parent, TextDisplayComponent(
-															ComponentAsdHandleImpl(), renderSystemHandle,
-															TextContext.Config(20F, 20F, ImmVec4i(255))
-														).apply {
-															listener = {
-																text = String.format("%.4g", accFactor)
-															}.apply { this() }
-														}, SingletonLayout.Config.Absolute.Full))
-													}
-												}, SizedPane.Config(100u, 20u)),
-												run {
-													lateinit var listener: () -> Unit
-													ButtonComponent(
-														ComponentAsdHandleImpl(),
-														inputStatesHandle,
-														{
-															lateinit var layout: SingletonLayout
-															SingletonLayout(this, TextDisplayComponent(
-																ComponentAsdHandleImpl(),
-																renderSystemHandle,
-																TextContext.Config(20F, 20F, ImmVec4i(255)),
-															).apply {
-																val listener0 = {
-																	text = when (makeKinematicProjection) {
-																		true -> "Kinematic"
-																		false -> "Dynamic"
+														)(this)
+													} to SequenceLayout.Element(1.0),
+													SimplePane(ComponentAsdHandleImpl()) {
+														ColumnLayout.withComponents(
+															listOf(
+																SizedPane(
+																	ComponentAsdHandleImpl(),
+																	CheckboxComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle,
+																		canvasHandle
+																	) { hotkeysEnabled = it },
+																	SizedPane.Config(20u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(),
+																	CheckboxComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle,
+																		canvasHandle,
+																	) { mouseDebugTrackingLayer.enabled = it },
+																	SizedPane.Config(20u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(), CheckboxComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle,
+																		canvasHandle,
+																		player.phyBody.gravityMode,
+																	) { player.phyBody.gravityMode = it }.apply {
+																		gravityModeListener =
+																			{ checked = player.phyBody.gravityMode }
+																	}, SizedPane.Config(20u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(),
+																	SimplePane(ComponentAsdHandleImpl())
+																	parent@{
+																		CompositeLayout(this).apply {
+																			lateinit var listener: (Double) -> Unit
+																			add(
+																				SingletonLayout(
+																					this@parent,
+																					SliderComponent(
+																						canvasHandle,
+																						inputStatesHandle,
+																						ComponentAsdHandleImpl()
+																					) {
+																						config(
+																							withRanged(
+																								MIN_GRAVITY..MAX_GRAVITY,
+																								-core.world!!.gravity.y,
+																							) {
+																								core.world!!.gravity =
+																									core.world!!.gravity
+																										.toMutVec3d()
+																										.apply {
+																											y = -it
+																										}
+																								listener(it)
+																							},
+																							xPos,
+																							ImmVec4i(123, 234, 56, 255),
+																							ImmVec4i(50, 50, 250, 255),
+																						)
+																					}.apply {
+																						gravityListener = {
+																							val v =
+																								-core.world!!.gravity.y
+																							fraction =
+																								SliderComponent.SliderMode.Ranged.Transform
+																									.Linear.project(
+																										v,
+																										MIN_GRAVITY..MAX_GRAVITY
+																									)
+																							listener(v)
+																						}
+																					},
+																					SingletonLayout.Config.Absolute.Full
+																				)
+																			)
+																			add(
+																				SingletonLayout(
+																					this@parent,
+																					TextDisplayComponent(
+																						ComponentAsdHandleImpl(),
+																						renderSystemHandle,
+																						TextContext.Config(
+																							20F,
+																							20F,
+																							ImmVec4i(255)
+																						)
+																					).apply {
+																						listener = { it: Double ->
+																							text = String.format(
+																								"%.2f",
+																								it
+																							)
+																						}.apply { this(-core.world!!.gravity.y) }
+																					},
+																					SingletonLayout.Config.Absolute.Full
+																				)
+																			)
+																		}
+																	},
+																	SizedPane.Config(100u, 20u)
+																),
+																ButtonComponent(
+																	ComponentAsdHandleImpl(),
+																	inputStatesHandle,
+																	{
+																		lateinit var layout: SingletonLayout
+																		SingletonLayout(
+																			this, TextDisplayComponent(
+																				ComponentAsdHandleImpl(),
+																				renderSystemHandle,
+																				TextContext.Config(
+																					20F,
+																					20F,
+																					ImmVec4i(255)
+																				),
+																			).apply {
+																				val listener = {
+																					text =
+																						core.world!!.frictionMode.toString()
+																				}.apply { this() }
+																				frictionModeListener = {
+																					layout.operate { listener() }
+																				}
+																			}, SingletonLayout.Config.Sole(
+																				SingletonLayout.Config.Scaled.Scale(1.0)
+																			)
+																		).apply { layout = this }
+																	},
+																) {
+																	core.world!!.frictionMode =
+																		World.FrictionMode.entries[
+																			(core.world!!.frictionMode.ordinal + 1) % World.FrictionMode.entries.size
+																		]
+																	frictionModeListener()
+																},
+																SizedPane(
+																	ComponentAsdHandleImpl(),
+																	SimplePane(ComponentAsdHandleImpl())
+																	parent@{
+																		CompositeLayout(this).apply {
+																			lateinit var listener: (Double) -> Unit
+																			add(
+																				SingletonLayout(
+																					this@parent,
+																					SliderComponent(
+																						canvasHandle,
+																						inputStatesHandle,
+																						ComponentAsdHandleImpl()
+																					) {
+																						config(
+																							withRanged(
+																								MIN_FRICTION..MAX_FRICTION,
+																								core.world!!.friction,
+																								transformLinearExponential(
+																									2.0
+																								),
+																							) {
+																								core.world!!.friction =
+																									it
+																								listener(it)
+																							},
+																							xPos,
+																							ImmVec4i(123, 234, 56, 255),
+																							ImmVec4i(50, 50, 250, 255),
+																						)
+																					}.apply {
+																						frictionListener = {
+																							val v =
+																								core.world!!.friction
+																							fraction =
+																								SliderComponent.SliderMode.Ranged.Transform
+																									.LinearExponential(
+																										2.0
+																									)
+																									.project(
+																										v,
+																										MIN_FRICTION..MAX_FRICTION
+																									)
+																							listener(v)
+																						}
+																					},
+																					SingletonLayout.Config.Absolute.Full
+																				)
+																			)
+																			add(
+																				SingletonLayout(
+																					this@parent,
+																					TextDisplayComponent(
+																						ComponentAsdHandleImpl(),
+																						renderSystemHandle,
+																						TextContext.Config(
+																							20F,
+																							20F,
+																							ImmVec4i(255)
+																						)
+																					).apply {
+																						listener = { it: Double ->
+																							text = String.format(
+																								"%.2f",
+																								it
+																							)
+																						}.apply { this(core.world!!.friction) }
+																					},
+																					SingletonLayout.Config.Absolute.Full
+																				)
+																			)
+																		}
+																	},
+																	SizedPane.Config(100u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(),
+																	SimplePane(ComponentAsdHandleImpl())
+																	parent@{
+																		CompositeLayout(this).apply {
+																			lateinit var listener: () -> Unit
+																			add(
+																				SingletonLayout(
+																					this@parent,
+																					SliderComponent(
+																						canvasHandle,
+																						inputStatesHandle,
+																						ComponentAsdHandleImpl()
+																					) {
+																						config(
+																							withRanged(
+																								MIN_SPEED_FACTOR..MAX_SPEED_FACTOR,
+																								speedFactor,
+																								transformLinearExponential(
+																									2.0
+																								),
+																							) {
+																								speedFactor = it
+																								listener()
+																							},
+																							xPos,
+																							ImmVec4i(123, 234, 56, 255),
+																							ImmVec4i(50, 50, 250, 255),
+																						)
+																					},
+																					SingletonLayout.Config.Absolute.Full
+																				)
+																			)
+																			add(
+																				SingletonLayout(
+																					this@parent,
+																					TextDisplayComponent(
+																						ComponentAsdHandleImpl(),
+																						renderSystemHandle,
+																						TextContext.Config(
+																							20F,
+																							20F,
+																							ImmVec4i(255)
+																						)
+																					).apply {
+																						listener = {
+																							text = String.format(
+																								"%.4g",
+																								speedFactor
+																							)
+																						}.apply { this() }
+																					},
+																					SingletonLayout.Config.Absolute.Full
+																				)
+																			)
+																		}
+																	},
+																	SizedPane.Config(100u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(),
+																	SimplePane(ComponentAsdHandleImpl())
+																	parent@{
+																		CompositeLayout(this).apply {
+																			lateinit var listener: () -> Unit
+																			add(
+																				SingletonLayout(
+																					this@parent,
+																					SliderComponent(
+																						canvasHandle,
+																						inputStatesHandle,
+																						ComponentAsdHandleImpl()
+																					) {
+																						config(
+																							withRanged(
+																								MIN_ACC_FACTOR..MAX_ACC_FACTOR,
+																								accFactor,
+																								transformLinearExponential(
+																									2.0
+																								),
+																							) {
+																								accFactor = it
+																								listener()
+																							},
+																							xPos,
+																							ImmVec4i(123, 234, 56, 255),
+																							ImmVec4i(50, 50, 250, 255),
+																						)
+																					},
+																					SingletonLayout.Config.Absolute.Full
+																				)
+																			)
+																			add(
+																				SingletonLayout(
+																					this@parent,
+																					TextDisplayComponent(
+																						ComponentAsdHandleImpl(),
+																						renderSystemHandle,
+																						TextContext.Config(
+																							20F,
+																							20F,
+																							ImmVec4i(255)
+																						)
+																					).apply {
+																						listener = {
+																							text = String.format(
+																								"%.4g",
+																								accFactor
+																							)
+																						}.apply { this() }
+																					},
+																					SingletonLayout.Config.Absolute.Full
+																				)
+																			)
+																		}
+																	},
+																	SizedPane.Config(100u, 20u)
+																),
+																run {
+																	lateinit var listener: () -> Unit
+																	ButtonComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle,
+																		{
+																			lateinit var layout: SingletonLayout
+																			SingletonLayout(
+																				this, TextDisplayComponent(
+																					ComponentAsdHandleImpl(),
+																					renderSystemHandle,
+																					TextContext.Config(
+																						20F,
+																						20F,
+																						ImmVec4i(255)
+																					),
+																				).apply {
+																					val listener0 = {
+																						text =
+																							when (makeKinematicProjection) {
+																								true -> "Kinematic"
+																								false -> "Dynamic"
+																							}
+																					}.apply { this() }
+																					listener =
+																						{ layout.operate { listener0() } }
+																				}, SingletonLayout.Config.Sole(
+																					SingletonLayout.Config.Scaled.Scale(
+																						1.0
+																					)
+																				)
+																			).apply { layout = this }
+																		},
+																	) {
+																		makeKinematicProjection =
+																			!makeKinematicProjection
+																		listener()
 																	}
-																}.apply { this() }
-																listener = { layout.operate { listener0() } }
-															}, SingletonLayout.Config.Sole(
-																SingletonLayout.Config.Scaled.Scale(1.0)
-															)).apply { layout = this }
-														},
-													) {
-														makeKinematicProjection = !makeKinematicProjection
-														listener()
-													}
-												},
-												SizedPane(ComponentAsdHandleImpl(), SimplePane(ComponentAsdHandleImpl())
-												parent@ {
-													CompositeLayout(this).apply {
-														lateinit var listener: () -> Unit
-														add(SingletonLayout(this@parent, SliderComponent(
-															canvasHandle, inputStatesHandle, ComponentAsdHandleImpl()
-														) {
-															config(withRanged(
-																MIN_PROJ_SPEED..MAX_PROJ_SPEED,
-																projectionSpeed,
-																transformLinearExponential(2.0),
-															) {
-																projectionSpeed = it
-																listener()
-															}, xPos, ImmVec4i(123, 234, 56, 255),
-																ImmVec4i(50, 50, 250, 255),
+																},
+																SizedPane(
+																	ComponentAsdHandleImpl(),
+																	SimplePane(ComponentAsdHandleImpl())
+																	parent@{
+																		CompositeLayout(this).apply {
+																			lateinit var listener: () -> Unit
+																			add(
+																				SingletonLayout(
+																					this@parent,
+																					SliderComponent(
+																						canvasHandle,
+																						inputStatesHandle,
+																						ComponentAsdHandleImpl()
+																					) {
+																						config(
+																							withRanged(
+																								MIN_PROJ_SPEED..MAX_PROJ_SPEED,
+																								projectionSpeed,
+																								transformLinearExponential(
+																									2.0
+																								),
+																							) {
+																								projectionSpeed = it
+																								listener()
+																							},
+																							xPos,
+																							ImmVec4i(123, 234, 56, 255),
+																							ImmVec4i(50, 50, 250, 255),
+																						)
+																					},
+																					SingletonLayout.Config.Absolute.Full
+																				)
+																			)
+																			add(
+																				SingletonLayout(
+																					this@parent,
+																					TextDisplayComponent(
+																						ComponentAsdHandleImpl(),
+																						renderSystemHandle,
+																						TextContext.Config(
+																							20F,
+																							20F,
+																							ImmVec4i(255)
+																						)
+																					).apply {
+																						listener = {
+																							text = String.format(
+																								"%.4g",
+																								projectionSpeed
+																							)
+																						}.apply { this() }
+																					},
+																					SingletonLayout.Config.Absolute.Full
+																				)
+																			)
+																		}
+																	},
+																	SizedPane.Config(100u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(), CheckboxComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle, canvasHandle, false
+																	) {
+																		attributeTrackingPane.toggleRowTpsTpt()
+																	}, SizedPane.Config(20u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(), CheckboxComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle, canvasHandle, false
+																	) {
+																		attributeTrackingPane.toggleRowPos()
+																	}, SizedPane.Config(20u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(), CheckboxComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle, canvasHandle, false
+																	) {
+																		attributeTrackingPane.toggleRowVel()
+																	}, SizedPane.Config(20u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(), CheckboxComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle, canvasHandle, false
+																	) {
+																		attributeTrackingPane.toggleRowForceAcc()
+																	}, SizedPane.Config(20u, 20u)
+																),
+																SimplePane(ComponentAsdHandleImpl()) {
+																	lateinit var listener1: () -> Unit
+																	lateinit var listener2: () -> Unit
+																	lateinit var listenerTxt: () -> Unit
+																	zoomLvlListener = {
+																		listener1()
+																		listener2()
+																		listenerTxt()
+																	}
+																	val filter1 = AlphaFilter(1F)
+																	val filter2 = AlphaFilter(1F)
+																	lateinit var layout: RowLayout
+																	RowLayout.withComponents(
+																		listOf(
+																			ButtonComponent(
+																				ComponentAsdHandleImpl(),
+																				inputStatesHandle,
+																				{
+																					SingletonLayout(
+																						this, DrawablesComponent(
+																							sequenceOf(
+																								DrawablesComponent.Drawable(
+																									GuiLine(
+																										canvasHandle,
+																										1,
+																										2,
+																										3,
+																										2,
+																										255,
+																										255,
+																										255,
+																										255
+																									)
+																								),
+																							), RectangleD(
+																								0.0, 0.0, 4.0, 4.0
+																							), ComponentAsdHandleImpl()
+																						).apply {
+																							addFilter(filter1)
+																							listener1 = {
+																								if (camera.zoomLevel > MIN_ZOOM)
+																									filter1.alpha = 1F
+																								else
+																									filter1.alpha = .5F
+																							}
+																						},
+																						SingletonLayout.Config.Sole(
+																							SingletonLayout.Config.Scaled.Scale(
+																								20 / 4.0
+																							)
+																						)
+																					)
+																				},
+																			) {
+																				if (camera.zoomLevel > MIN_ZOOM) {
+																					camera.zoomLevel /= 2
+																					zoomLvlListener()
+																				}
+																			},
+																			TextDisplayComponent(
+																				ComponentAsdHandleImpl(),
+																				renderSystemHandle,
+																				TextContext.Config(
+																					20F,
+																					20F,
+																					ImmVec4i(255)
+																				),
+																			).apply {
+																				val listener = {
+																					text = "${camera.zoomLevel}"
+																				}.apply { this() }
+																				listenerTxt = {
+																					layout.operate { listener() }
+																				}
+																			},
+																			ButtonComponent(
+																				ComponentAsdHandleImpl(),
+																				inputStatesHandle,
+																				{
+																					SingletonLayout(
+																						this, DrawablesComponent(
+																							sequenceOf(
+																								DrawablesComponent.Drawable(
+																									GuiLine(
+																										canvasHandle,
+																										1,
+																										2,
+																										3,
+																										2,
+																										255,
+																										255,
+																										255,
+																										255
+																									)
+																								),
+																								DrawablesComponent.Drawable(
+																									GuiLine(
+																										canvasHandle,
+																										2,
+																										1,
+																										2,
+																										3,
+																										255,
+																										255,
+																										255,
+																										255
+																									)
+																								),
+																							), RectangleD(
+																								0.0, 0.0, 4.0, 4.0
+																							), ComponentAsdHandleImpl()
+																						).apply {
+																							addFilter(filter2)
+																							listener2 = {
+																								if (camera.zoomLevel < MAX_ZOOM)
+																									filter2.alpha = 1F
+																								else
+																									filter2.alpha = .5F
+																							}
+																						},
+																						SingletonLayout.Config.Sole(
+																							SingletonLayout.Config.Scaled.Scale(
+																								20 / 4.0
+																							)
+																						)
+																					)
+																				},
+																			) {
+																				if (camera.zoomLevel < MAX_ZOOM) {
+																					camera.zoomLevel *= 2
+																					zoomLvlListener()
+																				}
+																			},
+																		),
+																		SequenceLayout.Config(
+																			Direction2S.Positive,
+																			intrinsic = true
+																		)
+																	)(this).apply { layout = this }
+																},
+																SizedPane(
+																	ComponentAsdHandleImpl(),
+																	CheckboxComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle,
+																		canvasHandle,
+																	) { axisHelpers.toggleAxisX() },
+																	SizedPane.Config(20u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(),
+																	CheckboxComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle,
+																		canvasHandle,
+																	) { axisHelpers.toggleAxisY() },
+																	SizedPane.Config(20u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(),
+																	CheckboxComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle,
+																		canvasHandle,
+																	) { axisHelpers.toggleAxisZ() },
+																	SizedPane.Config(20u, 20u)
+																),
+																SizedPane(
+																	ComponentAsdHandleImpl(),
+																	CheckboxComponent(
+																		ComponentAsdHandleImpl(),
+																		inputStatesHandle,
+																		canvasHandle,
+																	) { axisHelpers.togglePlane() },
+																	SizedPane.Config(20u, 20u)
+																),
+															),
+															SequenceLayout.Config(
+																Direction2S.Negative,
+																intrinsic = true
 															)
-														}, SingletonLayout.Config.Absolute.Full))
-														add(SingletonLayout(this@parent, TextDisplayComponent(
-															ComponentAsdHandleImpl(), renderSystemHandle,
-															TextContext.Config(20F, 20F, ImmVec4i(255))
-														).apply {
-															listener = {
-																text = String.format("%.4g", projectionSpeed)
-															}.apply { this() }
-														}, SingletonLayout.Config.Absolute.Full))
-													}
-												}, SizedPane.Config(100u, 20u)),
-// 												CollapsablePane(canvasHandle, ComponentAsdHandleImpl()) {
-// 													config(YPos, SizedPane(
-// 														ComponentAsdHandleImpl(),
-// 														BlankComponent(ComponentAsdHandleImpl()),
-// 														SizedPane.Config(20u, 20u),
-// 													), SimplePane(ComponentAsdHandleImpl()) {
-// 														ColumnLayout.withComponents(listOf(
-															SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(ComponentAsdHandleImpl(),
-																inputStatesHandle, canvasHandle, false) {
-																attributeTrackingPane.toggleRowTpsTpt()
-															}, SizedPane.Config(20u, 20u)),
-															SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(ComponentAsdHandleImpl(),
-																inputStatesHandle, canvasHandle, false) {
-																attributeTrackingPane.toggleRowPos()
-															}, SizedPane.Config(20u, 20u)),
-															SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(ComponentAsdHandleImpl(),
-																inputStatesHandle, canvasHandle, false) {
-																attributeTrackingPane.toggleRowVel()
-															}, SizedPane.Config(20u, 20u)),
-															SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(ComponentAsdHandleImpl(),
-																inputStatesHandle, canvasHandle, false) {
-																attributeTrackingPane.toggleRowForceAcc()
-															}, SizedPane.Config(20u, 20u)),
-// 														), SequenceLayout.Config(
-// 															Direction2S.Neg,
-// 															intrinsic = true,
-// 														))(this)
-// 													})
-// 												}.apply {
-// 													trackingCtrlPane2 = this
-// 													withMouseInput(inputStatesHandle) {
-// 														trackingCtrlPane1.open = !trackingCtrlPane1.open
-// 													}
-// 												},
-												SimplePane(ComponentAsdHandleImpl()) {
-													lateinit var listener1: () -> Unit
-													lateinit var listener2: () -> Unit
-													lateinit var listenerTxt: () -> Unit
-													zoomLvlListener = {
-														listener1()
-														listener2()
-														listenerTxt()
-													}
-													val filter1 = AlphaFilter(1F)
-													val filter2 = AlphaFilter(1F)
-													lateinit var layout: RowLayout
-													RowLayout.withComponents(listOf(
-														ButtonComponent(
-															ComponentAsdHandleImpl(), inputStatesHandle,
-															{
-																SingletonLayout(
-																	this, DrawablesComponent(
-																		sequenceOf(
-																			DrawablesComponent.Drawable(
-																				GuiLine(canvasHandle,
-																					1, 2, 3, 2, 255, 255, 255, 255
-																				)
-																			),
-																		), RectangleD(
-																			0.0, 0.0, 4.0, 4.0
-																		), ComponentAsdHandleImpl()
-																	).apply {
-																		addFilter(filter1)
-																		listener1 = {
-																			if (camera.zoomLevel > MIN_ZOOM)
-																				filter1.alpha = 1F
-																			else
-																				filter1.alpha = .5F
-																		}
-																	},
-																	SingletonLayout.Config.Sole(
-																		SingletonLayout.Config.Scaled.Scale(20 / 4.0)
-																	)
-																)
-															},
-														) {
-															if (camera.zoomLevel > MIN_ZOOM) {
-																camera.zoomLevel /= 2
-																zoomLvlListener()
-															}
-														},
-														TextDisplayComponent(ComponentAsdHandleImpl(),
-															renderSystemHandle,
-															TextContext.Config(20F, 20F, ImmVec4i(255)),
-														).apply {
-															val listener = {
-																text = "${camera.zoomLevel}"
-															}.apply { this() }
-															listenerTxt = {
-																layout.operate { listener() }
-															}
-														},
-														ButtonComponent(
-															ComponentAsdHandleImpl(), inputStatesHandle,
-															{
-																SingletonLayout(
-																	this, DrawablesComponent(
-																		sequenceOf(
-																			DrawablesComponent.Drawable(
-																				GuiLine(
-																					canvasHandle,
-																					1, 2, 3, 2, 255, 255, 255, 255
-																				)
-																			),
-																			DrawablesComponent.Drawable(
-																				GuiLine(
-																					canvasHandle,
-																					2, 1, 2, 3, 255, 255, 255, 255
-																				)
-																			),
-																		), RectangleD(
-																			0.0, 0.0, 4.0, 4.0
-																		), ComponentAsdHandleImpl()
-																	).apply {
-																		addFilter(filter2)
-																		listener2 = {
-																			if (camera.zoomLevel < MAX_ZOOM)
-																				filter2.alpha = 1F
-																			else
-																				filter2.alpha = .5F
-																		}
-																	},
-																	SingletonLayout.Config.Sole(
-																		SingletonLayout.Config.Scaled.Scale(20 / 4.0)
-																	)
-																)
-															},
-														) {
-															if (camera.zoomLevel < MAX_ZOOM) {
-																camera.zoomLevel *= 2
-																zoomLvlListener()
-															}
-														},
-													), SequenceLayout.Config(Direction2S.Positive, intrinsic = true)
-													)(this).apply { layout = this }
-												},
-												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
-													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle,
-												) { axisHelpers.toggleAxisX() }, SizedPane.Config(20u, 20u)),
-												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
-													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle,
-												) { axisHelpers.toggleAxisY() }, SizedPane.Config(20u, 20u)),
-												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
-													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle,
-												) { axisHelpers.toggleAxisZ() }, SizedPane.Config(20u, 20u)),
-												SizedPane(ComponentAsdHandleImpl(), CheckboxComponent(
-													ComponentAsdHandleImpl(), inputStatesHandle, canvasHandle,
-												) { axisHelpers.togglePlane() }, SizedPane.Config(20u, 20u)),
-											), SequenceLayout.Config(Direction2S.Negative, intrinsic = true))(this)
-										} to SequenceLayout.Element(1.0),
-										config = SequenceLayout.Config(Direction2S.Positive, 2.0, 2.0, true),
-									)(this@SimplePane))
+														)(this)
+													} to SequenceLayout.Element(1.0),
+													config = SequenceLayout.Config(
+														Direction2S.Positive,
+														2.0,
+														2.0,
+														true
+													),
+												)(this@top)
+											},
+										) {
+											CompositeLayout(this) {
+												add(SingletonLayout(this@TogglablePane, GeomComponent(
+													GuiRect(canvasHandle, 0, 0, 1, 1, 10, 10, 255, 255),
+													RectangleD(0.0, 0.0, 1.0, 1.0),
+													ComponentAsdHandleImpl(),
+												), SingletonLayout.Config.Absolute.Full))
+												add(SingletonLayout(this@TogglablePane, TextDisplayComponent(
+													ComponentAsdHandleImpl(),
+													renderSystemHandle,
+													TextContext.Config(20F, 20F, ImmVec4i(255)),
+												), SingletonLayout.Config.Sole(
+													SingletonLayout.Config.Scaled.Scale(1.0)
+												)))
+											}
+										},
+										SingletonLayout.Config.Auto(
+											SingletonLayout.Config.Auto.Side(Direction2S.Positive, 0.0),
+											SingletonLayout.Config.Auto.Side(Direction2S.Negative, 0.0),
+										)
+									))
 								}
 							},
 							SingletonLayout.Config.Aligned(
@@ -997,6 +1308,173 @@ internal class GameplayScreen(
 				refreshVel()
 				refreshForceAcc()
 			}
+		}
+	}
+
+	/**
+	 * @param pos Position of placement of content with respect to the button component.
+	 * @param alignment Alignment of cross axis for content after position of placement.
+	 * This also decides how the button component should be positioned from its container,
+	 * so there is a possibility there may be inconsistency between the states of `open`.
+	 */
+	private data class TogglablePaneConfig(val pos: Direction4A, val alignment: Double)
+
+	private inner class TogglablePane(
+		inputStatesHandle: InputStatesHandle,
+		private val config: TogglablePaneConfig,
+		private val content: Component,
+		buttonLayout: ButtonComponent.() -> Layout
+	) : AbstractPane(ComponentAsdHandleImpl()) {
+		private val button = ButtonComponent(ComponentAsdHandleImpl(), inputStatesHandle, buttonLayout) {
+			layout.operate { open = !open }
+		}
+
+		var open = false
+
+		override fun render(renderSystem: RenderSystem) = layout.render(renderSystem)
+
+		override val layout: Layout = object : Layout(this@TogglablePane) {
+			override val components = componentsNullableSequence(::button, { if (open) content else null })
+
+			override fun layOut(handle: LayoutHandle) = sequenceOf(LayoutComputationGroup({}, {
+				setOf(if (!open) LayoutComputationUnit({
+					put(button.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, DimensionsProperty.KEY))
+				}, {
+					put(container.asdHandle, setOf(DimensionsProperty.KEY))
+				}, {
+					mapOf(container.asdHandle to AgimoPropertyMap().apply {
+						putProperty(DimensionsProperty(DimensionsProperty.getOrComputeValue(getUnit(button.asdHandle))))
+					})
+				}) else LayoutComputationUnit({
+					put(button.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, DimensionsProperty.KEY))
+					put(content.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, DimensionsProperty.KEY))
+				}, {
+					put(container.asdHandle, setOf(DimensionsProperty.KEY))
+				}, {
+					val buttonDims = DimensionsProperty.getOrComputeValue(getUnit(button.asdHandle))
+					val contentDims = DimensionsProperty.getOrComputeValue(getUnit(content.asdHandle))
+					mapOf(container.asdHandle to AgimoPropertyMap().apply {
+						putProperty(DimensionsProperty(when (config.pos) {
+							Direction4A.XPos, Direction4A.XNeg -> Dimension2D(
+								buttonDims.width + contentDims.width,
+								max(buttonDims.height, contentDims.height),
+							)
+							Direction4A.YPos, Direction4A.YNeg -> Dimension2D(
+								max(buttonDims.width, contentDims.width),
+								buttonDims.height + contentDims.height,
+							)
+						}))
+					})
+				}), if (!open) LayoutComputationUnit({
+					put(container.asdHandle, setOf(BoundsProperty.KEY, RectangleProperty.KEY))
+				}, {
+					put(button.asdHandle, setOf(BoundsProperty.KEY))
+				}, {
+					val prop = getUnit(container.asdHandle)
+					mapOf(button.asdHandle to AgimoPropertyMap().apply {
+						putProperty(BoundsProperty(prop.getProperty(RectangleProperty.KEY)?.value
+							?: prop.getProperty(BoundsProperty.KEY)!!.value))
+					})
+				}) else LayoutComputationUnit({
+					put(button.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, DimensionsProperty.KEY))
+					put(content.asdHandle, setOf(IntrinsicDimensionsProperty.KEY, DimensionsProperty.KEY))
+					put(container.asdHandle, setOf(BoundsProperty.KEY, RectangleProperty.KEY))
+				}, {
+					put(button.asdHandle, setOf(BoundsProperty.KEY))
+					put(content.asdHandle, setOf(BoundsProperty.KEY))
+				}, {
+					val prop = getUnit(container.asdHandle)
+					val containerRect = prop.getProperty(RectangleProperty.KEY)?.value
+						?: prop.getProperty(BoundsProperty.KEY)!!.value
+					val buttonDims = DimensionsProperty.getOrComputeValue(getUnit(button.asdHandle))
+					val contentDims = DimensionsProperty.getOrComputeValue(getUnit(content.asdHandle))
+					val buttonRect: RectangleD
+					val contentRect: RectangleD
+					when (config.pos) {
+						Direction4A.XPos, Direction4A.XNeg -> {
+							val buttonSpace: RectangleD
+							val contentSpace: RectangleD
+							when (config.pos) {
+								Direction4A.XPos -> {
+									buttonSpace = RectangleD(
+										containerRect.x,
+										containerRect.y,
+										buttonDims.width,
+										containerRect.height,
+									)
+									contentSpace = RectangleD(
+										containerRect.x + buttonDims.width,
+										containerRect.y,
+										contentDims.width,
+										containerRect.height,
+									)
+								}
+								Direction4A.XNeg -> {
+									buttonSpace = RectangleD(
+										containerRect.x + contentDims.width,
+										containerRect.y,
+										buttonDims.width,
+										containerRect.height,
+									)
+									contentSpace = RectangleD(
+										containerRect.x,
+										containerRect.y,
+										contentDims.width,
+										containerRect.height,
+									)
+								}
+							}
+							buttonRect = AnchorAlignmentHelper.simple(buttonSpace, buttonDims,
+								ImmVec2d(0.5, config.alignment))
+							contentRect = AnchorAlignmentHelper.simple(contentSpace, contentDims,
+								ImmVec2d(0.5, config.alignment))
+						}
+						Direction4A.YPos, Direction4A.YNeg -> {
+							val buttonSpace: RectangleD
+							val contentSpace: RectangleD
+							when (config.pos) {
+								Direction4A.YPos -> {
+									buttonSpace = RectangleD(
+										containerRect.x,
+										containerRect.y,
+										containerRect.width,
+										buttonDims.height,
+									)
+									contentSpace = RectangleD(
+										containerRect.x,
+										containerRect.y + buttonDims.height,
+										containerRect.width,
+										contentDims.height,
+									)
+								}
+								Direction4A.YNeg -> {
+									buttonSpace = RectangleD(
+										containerRect.x,
+										containerRect.y + contentDims.height,
+										containerRect.width,
+										buttonDims.height,
+									)
+									contentSpace = RectangleD(
+										containerRect.x,
+										containerRect.y,
+										containerRect.width,
+										contentDims.height,
+									)
+								}
+							}
+							buttonRect = AnchorAlignmentHelper.simple(buttonSpace, buttonDims,
+								ImmVec2d(config.alignment, 0.5))
+							contentRect = AnchorAlignmentHelper.simple(contentSpace, contentDims,
+								ImmVec2d(config.alignment, 0.5))
+						}
+					}
+					mapOf(button.asdHandle to AgimoPropertyMap().apply {
+						putProperty(BoundsProperty(buttonRect))
+					}, content.asdHandle to AgimoPropertyMap().apply {
+						putProperty(BoundsProperty(contentRect))
+					})
+				}))
+			}))
 		}
 	}
 
