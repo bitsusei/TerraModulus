@@ -187,7 +187,7 @@ internal class GameplayScreen(
 						worldCommands.clear()
 					}
 				}
-				addListener(ScreenEvent.Close::class.java) {
+				addListener<ScreenEvent.Close> {
 					this@GameplayScreen.layout.update {
 						add(SingletonLayout(
 							this@GameplayScreen,
@@ -798,7 +798,7 @@ internal class GameplayScreen(
 							SingletonLayout.Config.Absolute.Full,
 						))
 					}
-					this@GameplayScreen.addListener(ScreenEvent.Update::class.java) {
+					this@GameplayScreen.addListener<ScreenEvent.Update> {
 						update0(it.muiIoI)
 						synchronized(chunkManagerLock) { chunkManager.update() }
 					}
@@ -1573,8 +1573,8 @@ internal class GameplayScreen(
 				SimpleQuad3dGeom(canvasHandle.canvas, listOf(
 					ImmVec3f(1F, 0F, 1F),
 					ImmVec3f(-1F, 0F, 1F),
-					ImmVec3f(1F, 0F, -1F),
 					ImmVec3f(-1F, 0F, -1F),
+					ImmVec3f(1F, 0F, -1F),
 				)),
 				HELPER_FLOOR_COL,
 				ZeroImmVec3d,
@@ -1612,7 +1612,7 @@ internal class GameplayScreen(
 		}
 
 		fun togglePlane() {
-			plane = if (axisZ == null) FloorPlaneHelper() else null
+			plane = if (plane == null) FloorPlaneHelper() else null
 		}
 
 		fun render(cuboid: Cuboid, space: Camera3D.LightSpace) {

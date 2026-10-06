@@ -73,7 +73,7 @@ class ResourceLoadingScreen(
 			)))
 		}
 
-		addListener(ScreenEvent.Update::class.java) {
+		addListener<ScreenEvent.Update> {
 			val current = System.currentTimeMillis()
 			val elapsed = (current - last) / 1000F // elapsed time in second at this stage
 			when (stage) {

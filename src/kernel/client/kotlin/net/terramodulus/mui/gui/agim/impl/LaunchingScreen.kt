@@ -51,7 +51,7 @@ internal class LaunchingScreen(
 			)))
 		}
 
-		addListener(ScreenEvent.Update::class.java) {
+		addListener<ScreenEvent.Update> {
 			val current = System.currentTimeMillis()
 			val elapsed = (current - last) / 1000F // elapsed time for this stage
 			when (stage) {

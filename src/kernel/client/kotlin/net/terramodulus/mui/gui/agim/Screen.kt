@@ -31,6 +31,8 @@ abstract class Screen(
 		listeners.computeIfAbsent(e) { LinkedHashSet() }.add(l as (ScreenEvent) -> Unit)
 	}
 
+	inline fun <reified T: ScreenEvent> addListener(noinline l: (T) -> Unit) = addListener(T::class.java, l)
+
 	fun <T: ScreenEvent> removeListener(e: Class<T>, l: (T) -> Unit) {
 		listeners[e]?.remove(l)
 	}
