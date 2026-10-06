@@ -15,7 +15,6 @@ import net.terramodulus.common.core.ApplicationArgumentParsingError
 import net.terramodulus.common.core.ApplicationInitializationFault
 import net.terramodulus.common.core.run
 import net.terramodulus.common.core.setupInit
-import net.terramodulus.mui.GuiManager
 import net.terramodulus.util.exception.CodeLogicFault
 import net.terramodulus.util.exception.triggerGlobalCrash
 import java.awt.Dimension

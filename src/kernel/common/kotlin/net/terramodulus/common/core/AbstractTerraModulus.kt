@@ -15,8 +15,5 @@ import java.io.Closeable
  * @constructor Cannot be `internal` because `client` and `server` are other modules.
  */
 abstract class AbstractTerraModulus : Closeable {
-	abstract var tps: Int
-		protected set
-
 	abstract fun run()
 }

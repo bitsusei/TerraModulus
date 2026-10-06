@@ -5,5 +5,6 @@
     <mapping directory="$PROJECT_DIR$/ferricia" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/ferricia/ode/ode-src" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/ferricia/openal-soft/openal-soft-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/vector-math" vcs="Git" />
   </component>
 </project>
